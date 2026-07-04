@@ -1,8 +1,10 @@
 # NexCartia
 
+**🔗 Live demo — [nex-cartia.vercel.app](https://nex-cartia.vercel.app/)**
+
 **NexCartia** is a full-stack e-commerce store — a customer-facing storefront plus an admin dashboard. Shoppers browse a cached product catalog, manage a cart, and check out with Stripe; admins manage inventory (product images via Cloudinary), coupons, orders, and sales analytics. The repository is split into two independently installed/run TypeScript packages — an Express 5 REST API and a React 19 SPA — that communicate only over HTTP through `VITE_SERVER` + `/api/v1/<domain>/`.
 
-![NexCartia login page](ecommerce-frontend/public/login-preview.png)
+[![NexCartia login page](ecommerce-frontend/public/login-preview.png)](https://nex-cartia.vercel.app/)
 
 ## Overview
 
