@@ -48,7 +48,7 @@ const NewsLetter = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Your email"
                   aria-label="Email address"
-                  className="flex-1 rounded px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-white"
+                  className="min-w-0 flex-1 rounded bg-white px-4 py-3 text-stone-900 placeholder:text-stone-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-stone-900/30"
                 />
                 <button
                   type="submit"
