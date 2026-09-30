@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from "express";
+import { Request } from "express";
 import { TryCatch } from "../middlewares/error.js";
 import {
   BaseQuery,
@@ -7,19 +7,32 @@ import {
 } from "../types/types.js";
 import { Product } from "../models/product.model.js";
 import ErrorHandler from "../utils/utility-class.js";
-import { rm } from "fs";
 import { myCache } from "../app.js";
 import {
   deleteFromCloudinary,
   invalidateCache,
   uploadToCloudinary,
 } from "../utils/features.js";
-// import {faker} from "@faker-js/faker"
 
 interface PhotoInterface {
   public_id: string;
   url: string;
 }
+
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const validateProductNumbers = (price: unknown, stock: unknown) => {
+  if (price !== undefined && !(Number(price) > 0))
+    return "Price must be greater than 0";
+  if (
+    stock !== undefined &&
+    (!Number.isInteger(Number(stock)) || Number(stock) < 0)
+  )
+    return "Stock must be a whole number of 0 or more";
+  return null;
+};
+
+const isGender = (gender: unknown) => gender === "male" || gender === "female";
 
 // Revalidate on New,Update,Delete Product & on New Order
 export const getlatestProducts = TryCatch(async (req, res, next) => {
@@ -99,23 +112,27 @@ export const newProduct = TryCatch(
     if (photos.length > 5)
       return next(new ErrorHandler("You can only upload 5 Photos", 400));
 
-    if (!name || !price || !stock || !category || !gender)
+    if (!name || !price || stock === undefined || stock === "" || !category || !gender)
       return next(new ErrorHandler("Please enter All Fields", 400));
 
-    // Upload Here
+    const numberError = validateProductNumbers(price, stock);
+    if (numberError) return next(new ErrorHandler(numberError, 400));
+
+    if (!isGender(gender))
+      return next(new ErrorHandler("Please select a valid gender", 400));
 
     const photosURL = await uploadToCloudinary(photos);
 
     await Product.create({
       name,
-      price,
+      price: Number(price),
       gender,
-      stock,
-      category: category.toLowerCase(),
+      stock: Number(stock),
+      category: category.trim().toLowerCase(),
       photos: photosURL,
     });
 
-    await invalidateCache({ product: true, admin: true });
+    invalidateCache({ product: true, admin: true });
 
     return res.status(201).json({
       success: true,
@@ -132,6 +149,15 @@ export const updateProduct = TryCatch(async (req, res, next) => {
   const product = await Product.findById(id);
 
   if (!product) return next(new ErrorHandler("Product Not Found", 404));
+
+  const numberError = validateProductNumbers(
+    price === "" ? undefined : price,
+    stock === "" ? undefined : stock
+  );
+  if (numberError) return next(new ErrorHandler(numberError, 400));
+
+  if (gender && !isGender(gender))
+    return next(new ErrorHandler("Please select a valid gender", 400));
 
   if (photos && photos.length > 0) {
     // Upload new photos
@@ -154,14 +180,14 @@ export const updateProduct = TryCatch(async (req, res, next) => {
   }
 
   if (name) product.name = name;
-  if (price) product.price = price;
-  if (stock) product.stock = stock;
-  if (category) product.category = category;
+  if (price) product.price = Number(price);
+  if (stock !== undefined && stock !== "") product.stock = Number(stock);
+  if (category) product.category = category.trim().toLowerCase();
   if (gender) product.gender = gender;
 
   await product.save();
 
-  await invalidateCache({
+  invalidateCache({
     product: true,
     productId: String(product._id),
     admin: true,
@@ -183,7 +209,7 @@ export const deleteProduct = TryCatch(async (req, res, next) => {
 
   await product.deleteOne();
 
-  await invalidateCache({
+  invalidateCache({
     product: true,
     productId: String(product._id),
     admin: true,
@@ -199,39 +225,36 @@ export const getAllProducts = TryCatch(
   async (req: Request<{}, {}, {}, SearchRequestQuery>, res, next) => {
     const { search, sort, category, price } = req.query;
 
-    const page = Number(req.query.page) || 1;
-    // 1,2,3,4,5,6,7,8
-    // 9,10,11,12,13,14,15,16
-    // 17,18,19,20,21,22,23,24
+    const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Number(process.env.PRODUCT_PER_PAGE) || 8;
     const skip = (page - 1) * limit;
 
     const baseQuery: BaseQuery = {};
 
-    if (search)
+    if (typeof search === "string" && search)
       baseQuery.name = {
-        $regex: search, //search base on anyy name
+        $regex: escapeRegex(search),
         $options: "i",
       };
 
-    if (price)
+    if (price && Number(price) > 0)
       baseQuery.price = {
-        $lte: Number(price), //find the products which have that price and greater than that
+        $lte: Number(price),
       };
 
-    if (category) baseQuery.category = category;
+    if (typeof category === "string" && category) baseQuery.category = category;
 
     const productsPromise = Product.find(baseQuery)
       .sort(sort && { price: sort === "asc" ? 1 : -1 })
       .limit(limit)
       .skip(skip);
 
-    const [products, filteredOnlyProduct] = await Promise.all([
+    const [products, filteredCount] = await Promise.all([
       productsPromise,
-      Product.find(baseQuery),
+      Product.countDocuments(baseQuery),
     ]);
 
-    const totalPage = Math.ceil(filteredOnlyProduct.length / limit);
+    const totalPage = Math.ceil(filteredCount / limit);
 
     return res.status(200).json({
       success: true,
@@ -248,7 +271,10 @@ export const getProductsFilter = TryCatch(async (req, res, next) => {
     return next(new ErrorHandler("Either gender or category is required", 400));
   }
 
-  const page = Number(req.query.page) || 1;
+  if ((gender && typeof gender !== "string") || (category && typeof category !== "string"))
+    return next(new ErrorHandler("Invalid filter value", 400));
+
+  const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Number(process.env.PRODUCT_PER_PAGE) || 8;
   const skip = (page - 1) * limit;
 
@@ -271,12 +297,12 @@ export const getProductsFilter = TryCatch(async (req, res, next) => {
 
   const productsPromise = Product.find(baseQuery).limit(limit).skip(skip);
 
-  const [products, filteredOnlyProduct] = await Promise.all([
+  const [products, filteredCount] = await Promise.all([
     productsPromise,
-    Product.find(baseQuery),
+    Product.countDocuments(baseQuery),
   ]);
 
-  const totalPage = Math.ceil(filteredOnlyProduct.length / limit);
+  const totalPage = Math.ceil(filteredCount / limit);
 
   const result = {
     success: true,
@@ -289,38 +315,3 @@ export const getProductsFilter = TryCatch(async (req, res, next) => {
 
   return res.status(200).json(result);
 });
-
-// const generateRandomProducts = async (count: number = 10) => {
-//   const products = [];
-
-//   for (let i = 0; i < count; i++) {
-//     const product = {
-//       name: faker.commerce.productName(),
-//       photo: "uploads\\ec020eef-3371-4dbb-9ec7-ae9557099dcb.jpg",
-//       price: faker.commerce.price({ min: 1500, max: 80000, dec: 0 }),
-//       stock: faker.commerce.price({ min: 0, max: 100, dec: 0 }),
-//       category: faker.commerce.department(),
-//       createdAt: new Date(faker.date.past()),
-//       updatedAt: new Date(faker.date.recent()),
-//       __v: 0,
-//     };
-
-//     products.push(product);
-//   }
-
-//   await Product.create(products);
-
-//   console.log({ succecss: true });
-// };
-// generateRandomProducts(40)
-// const deleteRandomsProducts = async (count: number = 10) => {
-//   const products = await Product.find({}).skip(2);
-
-//   for (let i = 0; i < products.length; i++) {
-//     const product = products[i];
-//     await product.deleteOne();
-//   }
-
-//   console.log({ succecss: true });
-// };
-// deleteRandomsProducts(38)

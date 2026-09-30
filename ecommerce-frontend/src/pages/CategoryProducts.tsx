@@ -4,7 +4,7 @@ import ProductCard from "@/components/Shared/ProductCard";
 import { useProductsFilterQuery } from "@/redux/api/productApi";
 import { addToCart } from "@/redux/reducer/cartReducer";
 import { CartItem } from "@/types/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { useLocation, useParams } from "react-router-dom";
@@ -35,8 +35,12 @@ const CategoryProducts = () => {
     toast.success("Added to cart");
   };
 
+  useEffect(() => {
+    setPage(1);
+  }, [collectionName]);
+
   const isPrevPage = page > 1;
-  const isNextPage = page < 4;
+  const isNextPage = page < (data?.totalPage ?? 1);
 
   if (isError) return <div>Error fetching products</div>;
 

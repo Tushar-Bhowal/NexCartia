@@ -23,11 +23,15 @@ const Login = lazy(() => import("./pages/Login"));
 const Orders = lazy(() => import("./pages/Orders"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CategoryProducts = lazy(() => import("./pages/CategoryProducts"));
+const ProductDetails = lazy(() => import("./pages/ProductDetails"));
+const OrderDetails = lazy(() => import("./pages/OrderDetails"));
+const PaymentSuccessful = lazy(() => import("./pages/PaymentSuccessful"));
 // Admin Routes Importing
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Products = lazy(() => import("./pages/admin/Products"));
 const Customers = lazy(() => import("./pages/admin/Customers"));
 const Transaction = lazy(() => import("./pages/admin/Transaction"));
+const Messages = lazy(() => import("./pages/admin/Messages"));
 
 // Management
 const NewProduct = lazy(() => import("./pages/admin/management/NewProduct"));
@@ -54,14 +58,16 @@ const App = () => {
   );
 
   const dispatch = useDispatch();
-  const { data, error } = useCheckAuthQuery();
+  const { data, isFetching, isError } = useCheckAuthQuery();
+  // Wait for the auth check to settle so protected routes don't redirect on refresh
   useEffect(() => {
-    if (data) {
+    if (isFetching) return;
+    if (data && !isError) {
       dispatch(userExist(data.user));
     } else {
       dispatch(userNotExist());
     }
-  }, [data, error, dispatch]);
+  }, [data, isFetching, isError, dispatch]);
   return loading ? (
     <Loader />
   ) : (
@@ -75,6 +81,7 @@ const App = () => {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/product/:id" element={<ProductDetails />} />
           <Route path="/category/:category" element={<CategoryProducts />} />
           <Route path="/gender/:gender" element={<CategoryProducts />} />
           {/* Not logged In Route */}
@@ -90,7 +97,9 @@ const App = () => {
           <Route element={<ProtectedRoute isAuthenticated={!!user} />}>
             <Route path="/shipping" element={<Shipping />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/order/:id" element={<OrderDetails />} />
             <Route path="/payment" element={<Payment />} />
+            <Route path="/payment/success" element={<PaymentSuccessful />} />
           </Route>
 
           {/* Admin Routes */}
@@ -107,6 +116,7 @@ const App = () => {
             <Route path="/admin/product" element={<Products />} />
             <Route path="/admin/customer" element={<Customers />} />
             <Route path="/admin/transaction" element={<Transaction />} />
+            <Route path="/admin/messages" element={<Messages />} />
 
             {/* Charts */}
             <Route path="/admin/chart/bar" element={<BarCharts />} />

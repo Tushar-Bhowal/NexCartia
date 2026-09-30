@@ -1,15 +1,11 @@
 import AdminSidebar from "@/components/Shared/admin/AdminSidebar";
 import { DoughnutChart, PieChart } from "@/components/Shared/admin/Charts";
-import { RootState } from "@/redux/store";
-import { useSelector } from "react-redux";
 import { usePieQuery } from "@/redux/api/dashboardApi";
 import { LineSkeleton } from "@/components/Shared/Loader";
 import { Navigate } from "react-router-dom";
 
 const PieCharts = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
-  const userId = user?._id;
-  const { isLoading, data, isError } = usePieQuery(userId!);
+  const { isLoading, data, isError } = usePieQuery();
   const datas = data!;
 
   const order = datas?.charts.orderFullfillment;

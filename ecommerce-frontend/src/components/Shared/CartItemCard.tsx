@@ -16,7 +16,6 @@ const CartItemCard = ({
   removeHandler,
 }: CartItemProps) => {
   const { photo, productId, name, price, quantity } = cartItem;
-  console.log(photo);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:p-6">

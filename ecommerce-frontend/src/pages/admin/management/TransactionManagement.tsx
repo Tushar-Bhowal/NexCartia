@@ -1,18 +1,15 @@
 
 import AdminSidebar from "../../../components/Shared/admin/AdminSidebar";
-import { OrderItemType } from "../../../types";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSelector } from "react-redux";
 import {
   useDeleteOrderMutation,
   useOrderDetailsQuery,
   useUpdateOrderMutation,
 } from "@/redux/api/orderApi";
 import { responseToast } from "@/utils/Features";
-import { Order } from "@/types/types";
-import { RootState } from "@/redux/store";
+import { Order, OrderItem } from "@/types/types";
 
 const defaultData: Order = {
   shippingInfo: {
@@ -30,11 +27,11 @@ const defaultData: Order = {
   total: 0,
   orderItems: [],
   user: { name: "", _id: "" },
+  createdAt: "",
   _id: "",
 };
 
 const TransactionManagement = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
 
   const params = useParams();
   const navigate = useNavigate();
@@ -43,7 +40,7 @@ const TransactionManagement = () => {
   const {
     shippingInfo: { address, city, state, country, pinCode },
     orderItems,
-    user: { name },
+    user,
     status,
     tax,
     subtotal,
@@ -51,27 +48,21 @@ const TransactionManagement = () => {
     discount,
     shippingCharges,
   } = data?.order || defaultData;
-  console.log(orderItems);
   
 
   const [updateOrder] = useUpdateOrderMutation();
   const [deleteOrder] = useDeleteOrderMutation();
-  const userid = user?._id;
   const orderid = data?.order._id;
 
   const updateHandler = async () => {
-    const res = await updateOrder({
-      userId: userid!,
-      orderId: orderid!,
-    });
+    if (!orderid) return;
+    const res = await updateOrder(orderid);
     responseToast(res, navigate, "/admin/transaction");
   };
 
   const deleteHandler = async () => {
-    const res = await deleteOrder({
-      userId: userid!,
-      orderId: orderid!,
-    });
+    if (!orderid) return;
+    const res = await deleteOrder(orderid);
     responseToast(res, navigate, "/admin/transaction");
   };
 
@@ -96,7 +87,7 @@ const TransactionManagement = () => {
               key={item._id} 
               name={item.name}
               photo={item.photo}
-              _id={item._id}
+              productId={item.productId}
               quantity={item.quantity}
               price={item.price}
             />
@@ -119,7 +110,7 @@ const TransactionManagement = () => {
                 Order Info
               </h1>
               <h5 className="font-bold">User Info</h5>
-              <p>Name: {name}</p>
+              <p>Name: {user?.name ?? "Deleted user"}</p>
               <p>
                 Address:{" "}
                 {`${address}, ${city}, ${state}, ${country} ${pinCode}`}
@@ -127,11 +118,11 @@ const TransactionManagement = () => {
             </div>
             <div>
               <h5 className="font-bold">Amount Info</h5>
-              <p>Subtotal: {subtotal}</p>
-              <p>Shipping Charges: {shippingCharges}</p>
-              <p>Tax: {tax}</p>
-              <p>Discount: {discount}</p>
-              <p>Total: {total}</p>
+              <p>Subtotal: ₹{subtotal}</p>
+              <p>Shipping Charges: ₹{shippingCharges}</p>
+              <p>Tax: ₹{tax}</p>
+              <p>Discount: ₹{discount}</p>
+              <p>Total: ₹{total}</p>
             </div>
             <div>
               <h5 className="font-bold">Status Info</h5>
@@ -166,13 +157,19 @@ const TransactionManagement = () => {
   );
 };
 
-const ProductCard = ({ name, photo, price, quantity, _id }: OrderItemType) => (
+const ProductCard = ({
+  name,
+  photo,
+  price,
+  quantity,
+  productId,
+}: Omit<OrderItem, "_id">) => (
   <div className="w-full transaction-product-card flex flex-row items-center justify-center p-1 gap-5">
     <img className="w-14 h-14 rounded-lg" src={photo} alt={name} />
     <div className="flex gap-12 ">
-      <Link to={`/product/${_id}`}>{name}</Link>
+      <Link to={`/product/${productId}`}>{name}</Link>
       <span>
-        ${price} X {quantity} = ${price * quantity}
+        ₹{price} X {quantity} = ₹{price * quantity}
       </span>
     </div>
   </div>

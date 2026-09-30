@@ -2,10 +2,9 @@ import AdminSidebar from "../../components/Shared/admin/AdminSidebar";
 import TableHOC from "../../components/Shared/admin/TableHOC";
 import { FaTrash } from "react-icons/fa";
 import { ColumnDef } from "@tanstack/react-table";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import defaultAvatar from "@/assets/userpic.png";
 import { ReactElement } from "react";
-import { RootState } from "@/redux/store";
-import { useSelector } from "react-redux";
 import { useAllUsersQuery, useDeleteUserMutation } from "@/redux/api/userApi";
 import { LineSkeleton } from "@/components/Shared/Loader";
 import toast from "react-hot-toast";
@@ -49,42 +48,41 @@ const columns: ColumnDef<DataType>[] = [
 ];
 
 const Customers = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
-
-  const userId = user?._id;
-  const { isLoading, data, isError, error } = useAllUsersQuery(userId!);
-
-  const [rows, setRows] = useState<DataType[]>([]);
+  const { isLoading, data, isError, error } = useAllUsersQuery();
 
   const [deleteUser] = useDeleteUserMutation();
 
   const deleteHandler = async (userId: string) => {
-    const res = await deleteUser({ userId, adminUserId: userId! });
+    const res = await deleteUser(userId);
     responseToast(res, null, "");
   };
 
-  if (isError) {
-    const err = error as CustomError;
-    toast.error(err.data.message);
-  }
-
   useEffect(() => {
-    if (data)
-      setRows(
-        data.users.map((i) => ({
-          avatar: <img className="rounded-lg" src={i.photo} alt={i.name} />,
-          name: i.name,
-          email: i.email,
-          gender: i.gender,
-          role: i.role,
-          action: (
-            <button onClick={() => deleteHandler(i._id)}>
-              <FaTrash />
-            </button>
-          ),
-        }))
-      );
-  }, [data]);
+    if (isError) toast.error((error as CustomError).data?.message);
+  }, [isError, error]);
+
+  const rows: DataType[] =
+    data?.users.map((i) => ({
+      avatar: (
+        <img
+          className="h-10 w-10 rounded-lg object-cover"
+          src={i.photo || defaultAvatar}
+          alt={i.name}
+        />
+      ),
+      name: i.name,
+      email: i.email,
+      gender: i.gender,
+      role: i.role,
+      action: (
+        <button
+          onClick={() => deleteHandler(i._id)}
+          aria-label={`Delete ${i.name}`}
+        >
+          <FaTrash />
+        </button>
+      ),
+    })) ?? [];
 
   const Table = TableHOC<DataType>(
     columns,

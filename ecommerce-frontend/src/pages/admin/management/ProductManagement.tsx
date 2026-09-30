@@ -1,7 +1,7 @@
+import toast from "react-hot-toast";
 import { useState, useEffect, FormEvent } from "react";
 import AdminSidebar from "../../../components/Shared/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
-import { useSelector } from "react-redux";
 import { Trash } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
@@ -9,33 +9,29 @@ import {
   useProductDetailsQuery,
   useUpdateProductMutation,
 } from "@/redux/api/productApi";
-import { RootState } from "@/redux/store";
 import { responseToast } from "@/utils/Features";
 import { useFileHandler } from "6pp";
 
 const ProductManagement = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
-
   const params = useParams();
   const navigate = useNavigate();
 
   const { data, isError } = useProductDetailsQuery(params.id!);
 
-  const { price, photos, name, stock, category } = data?.product || {
-    photo: [],
+  const { price, photos, name, stock, category, gender } = data?.product || {
+    photos: [],
     category: "",
     name: "",
     stock: 0,
     price: 0,
-    // description: "",
+    gender: "",
   };
   const [btnLoading, setBtnLoading] = useState<boolean>(false);
   const [priceUpdate, setPriceUpdate] = useState<number>(price);
   const [stockUpdate, setStockUpdate] = useState<number>(stock);
   const [nameUpdate, setNameUpdate] = useState<string>(name);
   const [categoryUpdate, setCategoryUpdate] = useState<string>(category);
-  // const [descriptionUpdate, setDescriptionUpdate] =
-  //   useState<string>(description);
+  const [genderUpdate, setGenderUpdate] = useState<string>(gender);
   const [updateProduct] = useUpdateProductMutation();
   const [deleteProduct] = useDeleteProductMutation();
 
@@ -48,42 +44,35 @@ const ProductManagement = () => {
       const formData = new FormData();
 
       if (nameUpdate) formData.set("name", nameUpdate);
-      //   if (descriptionUpdate) formData.set("description", descriptionUpdate);
       if (priceUpdate) formData.set("price", priceUpdate.toString());
       if (stockUpdate !== undefined)
         formData.set("stock", stockUpdate.toString());
 
       if (categoryUpdate) formData.set("category", categoryUpdate);
+      if (genderUpdate) formData.set("gender", genderUpdate);
       if (photosFiles.file && photosFiles.file.length > 0) {
         photosFiles.file.forEach((file) => {
           formData.append("photos", file);
         });
       }
 
-      const userId = user?._id;
-      const producId = data?.product._id;
       const res = await updateProduct({
         formData,
-        userId: userId!,
-        productId: producId!,
+        productId: data!.product._id,
       });
 
       responseToast(res, navigate, "/admin/product");
-    } catch (error) {
-      console.log(error);
+    } catch {
+      toast.error("Something went wrong");
     } finally {
       setBtnLoading(false);
     }
   };
 
   const deleteHandler = async () => {
-    const userId = user?._id;
-    const producId = data?.product._id;
+    if (!data) return;
 
-    const res = await deleteProduct({
-      userId: userId!,
-      productId: producId!,
-    });
+    const res = await deleteProduct(data.product._id);
 
     responseToast(res, navigate, "/admin/product");
   };
@@ -94,7 +83,7 @@ const ProductManagement = () => {
       setPriceUpdate(data.product.price);
       setStockUpdate(data.product.stock);
       setCategoryUpdate(data.product.category);
-      // setDescriptionUpdate(data.product.description);
+      setGenderUpdate(data.product.gender);
     }
   }, [data]);
   if (isError) return <Navigate to={"/404"} />;
@@ -186,6 +175,19 @@ const ProductManagement = () => {
                 value={categoryUpdate}
                 onChange={(e) => setCategoryUpdate(e.target.value)}
               />
+            </div>
+            <div>
+              <label className="block mt-2 mb-2 text-sm font-medium text-gray-900">
+                Gender
+              </label>
+              <select
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                value={genderUpdate}
+                onChange={(e) => setGenderUpdate(e.target.value)}
+              >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
             </div>
             <div>
               <label className="block mt-2 mb-2 text-sm font-medium text-gray-900">

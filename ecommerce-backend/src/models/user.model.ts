@@ -35,6 +35,7 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
+      select: false,
     },
     role: { type: String, enum: ["admin", "user"], default: "user" },
     gender: {
@@ -43,7 +44,6 @@ const userSchema = new mongoose.Schema(
       required: [true, "Please enter gender"],
     },
     dob: { type: Date, required: [true, "Please enter date of birth"] },
- 
   },
 
   { timestamps: true }

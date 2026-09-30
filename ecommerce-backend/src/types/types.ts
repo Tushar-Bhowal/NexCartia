@@ -2,21 +2,25 @@ import { NextFunction, Request, Response } from "express";
 
 export interface NewUserRequestBody {
   name: string;
-  lastLogin: Date;
   email: string;
   password: string;
-  photo: string;
   gender: "male" | "female";
-  _id: string;
-  dob: Date;
+  dob: string;
+}
+
+export interface GoogleAuthRequestBody {
+  idToken: string;
+  gender?: "male" | "female";
+  dob?: string;
 }
 
 export interface NewProductRequestBody {
   name: string;
   category: string;
   gender: "male" | "female";
-  price: number;
-  stock: number;
+  // multipart form fields always arrive as strings
+  price: string;
+  stock: string;
 }
 
 export type ControllerType = (
@@ -50,12 +54,9 @@ export type InvalidateCacheProps = {
   productId?: string | string[];
 };
 
-export type OrderItemType = {
-  name: string;
-  photo: string;
-  price: number;
-  quantity: number;
+export type CartLineType = {
   productId: string;
+  quantity: number;
 };
 
 export type ShippingInfoType = {
@@ -63,16 +64,17 @@ export type ShippingInfoType = {
   city: string;
   state: string;
   country: string;
-  pinCode: number;
+  pinCode: string;
 };
 
-export interface NewOrderRequestBody {
+export interface NewPaymentRequestBody {
+  items: CartLineType[];
   shippingInfo: ShippingInfoType;
-  user: string;
-  subtotal: number;
-  tax: number;
-  shippingCharges: number;
-  discount: number;
-  total: number;
-  orderItems: OrderItemType[];
+  coupon?: string;
+}
+
+export interface NewOrderRequestBody {
+  paymentIntentId: string;
+  items: CartLineType[];
+  coupon?: string;
 }

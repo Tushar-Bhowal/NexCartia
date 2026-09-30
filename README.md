@@ -8,7 +8,7 @@
 
 ## Overview
 
-The **backend** (`ecommerce-backend/`) is a stateless Express 5 REST API persisting to MongoDB via Mongoose. It exposes five domains — `user`, `product`, `order`, `payment`, `dashboard` — each as a router under `/api/v1`. Read-heavy endpoints are cached in an in-process `node-cache` instance (`myCache`), and every mutation invalidates the affected cache keys so reads never serve stale data. Product images are uploaded through Multer (in-memory) and pushed to Cloudinary; checkout amounts are computed server-side and turned into Stripe PaymentIntents.
+The **backend** (`ecommerce-backend/`) is a stateless Express 5 REST API persisting to MongoDB via Mongoose. It exposes six domains — `user`, `product`, `order`, `payment`, `dashboard`, `message` — each as a router under `/api/v1`. Read-heavy endpoints are cached in an in-process `node-cache` instance (`myCache`), and every mutation invalidates the affected cache keys so reads never serve stale data. Product images are uploaded through Multer (in-memory) and pushed to Cloudinary; checkout amounts are computed server-side and turned into Stripe PaymentIntents.
 
 The **frontend** (`ecommerce-frontend/`) is a React 19 SPA built with Vite. All server data flows through **RTK Query** slices in `src/redux/api/` (one per backend domain), each with `tagTypes` so a mutation's `invalidatesTags` forces a refetch of matching queries. Purely client-side state — the cart and the authenticated user — lives in plain Redux slices in `src/redux/reducer/`. Authentication is handled with **Firebase** (e.g. Google sign-in on the client); the user record is mirrored into MongoDB and a JWT cookie session is issued by the backend.
 
@@ -27,7 +27,7 @@ There is **no root `package.json`** — install and run each package separately.
 | Controllers | `src/controllers/*.ts` | Business logic; read from cache or DB, write to DB, invalidate cache, shape the JSON response. |
 | Models | `src/models/*.model.ts` | Mongoose schemas: `User`, `Product`, `Order`, `Coupon`. |
 | Cache + helpers | `src/utils/features.ts` | `connectDB`, `invalidateCache`, `reduceStock`, Cloudinary upload/delete, chart/inventory aggregation helpers. |
-| Auth middleware | `src/middlewares/auth.ts`, `verifytoken.ts` | `adminOnly` (checks `?id=` → user role) and `verifyToken` (JWT cookie → `req.userId`). |
+| Auth middleware | `src/middlewares/auth.ts`, `verifytoken.ts` | `verifyToken` (JWT cookie → `req.userId`) and `adminOnly` (JWT cookie → user must have `role: "admin"`). |
 | Error plumbing | `src/middlewares/error.ts` | `TryCatch` wrapper + `errorMiddleware` → uniform `{ success:false, message }`. |
 | Frontend store | `ecommerce-frontend/src/redux/store.ts` | Registers 4 RTK Query reducers+middleware and 2 plain reducers (`userReducer`, `cartReducer`). |
 | API slices | `src/redux/api/*.ts` | `createApi` per domain; queries `providesTags`, mutations `invalidatesTags`. |
@@ -41,7 +41,7 @@ Every request flows through the same pipeline; `TryCatch` guarantees any thrown 
 HTTP request
   → express.json + cookieParser + morgan + cors(origin: CLIENT_URL)
   → router match (/api/v1/<domain>/...)
-  → [optional] adminOnly (?id=) / verifyToken (cookie) / mutliUpload
+  → [optional] verifyToken / adminOnly (both read the JWT cookie) / mutliUpload
   → controller (TryCatch-wrapped)
        → myCache.has(key)? return cached JSON : query Mongo, cache, return
        → on write: persist → invalidateCache(...) → respond
@@ -66,21 +66,21 @@ Example dependency: `newOrder` (`order.controller.ts`) calls `invalidateCache({ 
 ```mermaid
 flowchart TD
   A[Cart page<br/>cartReducer state] --> B[Shipping page]
-  B --> C[POST /api/v1/payment/create?id=userId<br/>items, shippingInfo, coupon]
-  C --> D[createPaymentIntent:<br/>subtotal + 18% tax + shipping<br/>− coupon, ×100, INR]
+  B --> C[POST /api/v1/payment/create<br/>items, shippingInfo, coupon]
+  C --> D[createPaymentIntent:<br/>stock check, subtotal + 18% tax + shipping<br/>− coupon, ×100, INR, totals in metadata]
   D --> E[Stripe PaymentIntent<br/>returns clientSecret]
   E --> F[Payment page<br/>@stripe/react-stripe-js confirms]
-  F --> G[POST /api/v1/order/new<br/>orderItems, totals, user]
-  G --> H[newOrder: Order.create<br/>+ reduceStock]
+  F --> G[POST /api/v1/order/new<br/>paymentIntentId, items, coupon]
+  G --> H[newOrder: verify PaymentIntent<br/>Order.create + reduceStock]
   H --> I[invalidateCache product+order+admin]
   I --> J[RTK Query refetch via tags<br/>Orders / admin charts]
 ```
 
 Stage-by-stage data hand-off:
 1. **Cart → Shipping:** cart items + address held in `cartReducer` (client state).
-2. **Shipping → payment/create:** sends `{ items, shippingInfo, coupon }` with `?id=<userId>`. Backend recomputes `subtotal`, `tax = subtotal*0.18`, `shipping = subtotal>1000 ? 0 : 200`, subtracts the coupon amount, multiplies by 100 (paise), creates an INR PaymentIntent, returns `clientSecret`. **Totals are never trusted from the client here.**
+2. **Shipping → payment/create:** sends `{ items: [{ productId, quantity }], shippingInfo, coupon }` (logged-in cookie required; `country` is an ISO code like `IN`). Backend checks stock, recomputes `subtotal`, `tax = round(subtotal*0.18)`, `shipping = subtotal>1000 ? 0 : 200`, subtracts the coupon amount, and creates an INR card PaymentIntent whose metadata holds the user id, the totals and a fingerprint of the cart. Returns `clientSecret`. **Totals are never trusted from the client.**
 3. **Payment:** the client confirms the PaymentIntent with Stripe.js using `clientSecret`.
-4. **order/new:** persists the `Order`, then `reduceStock` decrements each product's `stock`, then `invalidateCache` clears product + order + admin keys.
+4. **order/new:** sends `{ paymentIntentId, items, coupon }`. The server retrieves the intent from Stripe and requires that it succeeded, belongs to the caller and matches the cart fingerprint; it then persists the `Order` with the totals from the intent (a retry with the same intent returns the existing order), `reduceStock` decrements stock (never below 0), and `invalidateCache` clears product + order + admin keys. The client lands on `/payment/success`.
 5. **Refetch:** the next RTK Query read (orders list, dashboard charts) misses the now-empty cache and repopulates from Mongo.
 
 ## Features
@@ -101,7 +101,7 @@ Lists latest products, all categories, and a paginated/filterable catalog, servi
 Admins create/update/delete products with image uploads. Photos are received in memory by Multer, base64-encoded, and uploaded to Cloudinary; only `{ public_id, url }` pairs are stored on the product — never local file paths.
 
 - **Mechanism:** `mutliUpload` (`middlewares/multer.ts`) populates `req.files`; `uploadToCloudinary(files)` (`utils/features.ts`) maps each file through `cloudinary.uploader.upload(getBase64(file))` and returns `{ public_id, url }[]`. Deletes call `deleteFromCloudinary(publicIds)`. Routes are guarded by `adminOnly`.
-- **Inputs/outputs:** `POST /api/v1/product/new?id=<adminId>` (multipart form) → `{ success, message }`; mirror `PUT`/`DELETE /api/v1/product/:id?id=<adminId>`.
+- **Inputs/outputs:** `POST /api/v1/product/new` (admin cookie, multipart form, images only, ≤5 files of ≤5 MB) → `{ success, message }`; mirror `PUT`/`DELETE /api/v1/product/:id`.
 - **Example (frontend):**
   ```ts
   const [newProduct] = useNewProductMutation();
@@ -113,7 +113,7 @@ Admins create/update/delete products with image uploads. Photos are received in 
 Builds a Stripe PaymentIntent from a server-side price calculation so the client cannot tamper with the amount. Coupons are looked up live and subtracted before charging.
 
 - **Mechanism:** `createPaymentIntent` (`payment.controller.ts`) fetches products by `_id $in`, computes subtotal, `tax = subtotal*0.18`, conditional shipping, subtracts `Coupon.amount`, `Math.floor`s the total, and calls `stripe.paymentIntents.create({ amount: total*100, currency: "inr", shipping })`. Stripe SDK is pinned to `apiVersion: "2026-05-27.dahlia"` in `app.ts`.
-- **Inputs/outputs:** `POST /api/v1/payment/create?id=<userId>` body `{ items, shippingInfo, coupon? }` → `{ success, clientSecret }`.
+- **Inputs/outputs:** `POST /api/v1/payment/create` (logged-in cookie) body `{ items, shippingInfo, coupon? }` → `{ success, clientSecret }`.
 - **Dependency:** feeds the **order creation** feature — `clientSecret` confirms the charge, after which `order/new` is called.
 
 ### Coupons / discounts
@@ -123,15 +123,22 @@ Admins create and delete fixed-amount coupons; the storefront validates a code a
 - **Mechanism:** `Coupon` model stores `{ code, amount }`. `applyDiscount` (`GET /api/v1/payment/discount?coupon=<code>`) returns `{ discount }`; `newCoupon`/`allCoupons`/`deleteCoupon` are `adminOnly`. The same code is re-resolved server-side inside `createPaymentIntent` so the discount is enforced at charge time, not just displayed.
 - **Inputs/outputs:** `GET .../payment/discount?coupon=SAVE200` → `{ success, discount: 200 }`.
 
+### Contact messages & newsletter
+
+The Contact page form and the site-wide newsletter box save to MongoDB; admins read and delete them on **Admin → Messages**.
+
+- **Mechanism:** `Message` (`{ name, email, message }`) and `Subscriber` (`{ email }`, unique, lowercased) models in `models/message.model.ts`; `controllers/message.controller.ts` validates input. Submitting is public; listing and deleting are `adminOnly`.
+- **Inputs/outputs:** `POST /api/v1/message/contact` body `{ name, email, message }`; `POST /api/v1/message/subscribe` body `{ email }` (subscribing twice is a no-op); `GET /api/v1/message/all`, `GET /api/v1/message/subscribers`, `DELETE /api/v1/message/:id`, `DELETE /api/v1/message/subscribers/:id` (admin).
+
 ### Orders with stock reduction & status lifecycle
 
 Persists an order, atomically decrements product stock, and advances an order through `Processing → Shipped → Delivered`.
 
-- **Mechanism:** `newOrder` validates required fields, `Order.create(...)`, then `reduceStock(orderItems)` loops each item and saves `product.stock -= quantity`. `processOrder` switches `status` forward one step. Both invalidate order/admin (and product, for new) caches. `myOrders` is keyed `my-orders-<userId>`; `allOrders` populates `user` name.
-- **Inputs/outputs:** `POST /api/v1/order/new` → `{ success, message }`; `GET /api/v1/order/my?id=<userId>`; `PUT /api/v1/order/:id?id=<adminId>` advances status.
+- **Mechanism:** `newOrder` verifies the Stripe PaymentIntent (see checkout flow), `Order.create(...)`, then `reduceStock(items)` atomically decrements each product's stock, floored at 0. `processOrder` switches `status` forward one step. Both invalidate order/admin (and product, for new) caches. `myOrders` is keyed `my-orders-<userId>`; `allOrders` populates `user` name.
+- **Inputs/outputs:** `POST /api/v1/order/new` → `{ success, message, order }`; `GET /api/v1/order/my` (caller's orders); `GET /api/v1/order/:id` (owner or admin); `PUT /api/v1/order/:id` (admin) advances status.
 - **Example:**
   ```bash
-  curl "$SERVER/api/v1/order/my?id=$USER_ID"   # → { success, orders: [...] }
+  curl -b "token=$TOKEN" "$SERVER/api/v1/order/my"   # → { success, orders: [...] }
   ```
 
 ### Admin dashboard analytics
@@ -139,16 +146,14 @@ Persists an order, atomically decrements product stock, and advances an order th
 Computes revenue, inventory distribution, and 6/12-month time series for charts, all behind `adminOnly` and cached under `admin-*` keys.
 
 - **Mechanism:** `controllers/adminDashboard.ts` aggregates with helpers in `utils/features.ts`: `calculatePercentage(thisMonth,lastMonth)`, `getInventories({categories,productsCount})` (per-category share), and `getChartData({length,docArr,today,property})` (buckets docs into the last `length` months by `createdAt`, summing `property` or counting). Results cache as `admin-stats|pie|bar|line` and are wiped by any order mutation (`admin:true`).
-- **Inputs/outputs:** `GET /api/v1/dashboard/{stats,pie,bar,line}?id=<adminId>` → domain JSON; frontend renders via `chart.js` + `react-chartjs-2`.
+- **Inputs/outputs:** `GET /api/v1/dashboard/{stats,pie,bar,line}` (admin cookie) → domain JSON; frontend renders via `chart.js` + `react-chartjs-2`.
 
 ### Authentication: Firebase client + JWT cookie + role-based admin
 
 Client identity is established with Firebase; the backend mirrors the user into Mongo, issues a JWT cookie session, and gates admin actions by role.
 
-- **Mechanism:** `newUser`/`SignInUser` (`user.controller.ts`) hash passwords with `bcryptjs` and call `generateTokenAndSetCookie(res, user._id)` (sets `token` cookie). `verifyToken` (`verifytoken.ts`) reads `req.cookies.token`, verifies with `JWT_SECRET`, sets `req.userId`; `checkAuth` returns the current user. **Admin endpoints** use a *separate* scheme: `adminOnly` (`auth.ts`) reads `req.query.id`, loads the user, and requires `role === "admin"`. On the client, `App.tsx` calls `useCheckAuthQuery()` and `ProtectedRoute` gates `/login`, logged-in routes, and `admin` routes (`user?.role === "admin"`).
+- **Mechanism:** `newUser`/`SignInUser` (`user.controller.ts`) hash passwords with `bcryptjs` and call `generateTokenAndSetCookie(res, user._id)` (sets `token` cookie). `verifyToken` (`verifytoken.ts`) reads `req.cookies.token`, verifies with `JWT_SECRET`, sets `req.userId`; `checkAuth` returns the current user. **Admin endpoints** use `adminOnly` (`auth.ts`), which reads the same cookie, loads the user, and requires `role === "admin"`. Google sign-in (`POST /api/v1/user/google`) sends the Firebase ID token, which the server verifies against Google's public keys and `FIREBASE_PROJECT_ID` before issuing the cookie. Passwords are `select: false` and never returned. On the client, `App.tsx` calls `useCheckAuthQuery()` and `ProtectedRoute` gates `/login`, logged-in routes, and `admin` routes (`user?.role === "admin"`).
 - **Inputs/outputs:** `GET /api/v1/user/check-auth` (cookie) → `{ success, user }`; `POST /api/v1/user/signin` → sets cookie + `{ user }`.
-
-> Note: two auth schemes coexist — cookie-JWT (`verifyToken`) for the current user and `?id=`-query role checks (`adminOnly`) for admin routes. <!-- TODO: confirm this split is intentional vs. consolidating admin checks onto the JWT cookie -->
 
 ### Frontend data layer: RTK Query tag invalidation
 
@@ -201,19 +206,19 @@ curl "$SERVER/api/v1/product/latest"
 
 **Scenario — create a PaymentIntent (input → output):**
 ```bash
-curl -X POST "$SERVER/api/v1/payment/create?id=$USER_ID" \
+curl -X POST -b "token=$TOKEN" "$SERVER/api/v1/payment/create" \
   -H "Content-Type: application/json" \
-  -d '{"items":[{"productId":"<id>","quantity":2}],"shippingInfo":{"address":"...","city":"...","state":"...","country":"IN","pinCode":560001},"coupon":"SAVE200"}'
+  -d '{"items":[{"productId":"<id>","quantity":2}],"shippingInfo":{"address":"...","city":"...","state":"...","country":"IN","pinCode":"560001"},"coupon":"SAVE200"}'
 # → { "success": true, "clientSecret": "pi_..._secret_..." }
 ```
 
 **Scenario — advance an order's status (admin):**
 ```bash
-curl -X PUT "$SERVER/api/v1/order/<orderId>?id=$ADMIN_ID"
+curl -X PUT -b "token=$ADMIN_TOKEN" "$SERVER/api/v1/order/<orderId>"
 # → { "success": true, "message": "Order Processed Successfully" }   (Processing → Shipped → Delivered)
 ```
 
-> **Auth note:** admin and user-scoped endpoints currently identify the caller by an `?id=<userId>` query parameter (`adminOnly` in `middlewares/auth.ts` looks the id up and checks `role`). This is a known limitation, **not** a recommended pattern — a query-string id is not a credential and leaks through server logs, browser history, and `Referer` headers. The signed JWT cookie (`verifyToken`) is the intended mechanism; these examples document current behavior only.
+> **Auth note:** protected endpoints identify the caller only by the signed `token` cookie set at sign-in (`$TOKEN` above). A user id in the query string or body is never used for authorization.
 
 ## Configuration
 
@@ -231,6 +236,7 @@ curl -X PUT "$SERVER/api/v1/order/<orderId>?id=$ADMIN_ID"
 | `CLOUD_API_KEY` | string | — | Cloudinary API key. |
 | `CLOUD_API_SECRET` | string | — | Cloudinary API secret. |
 | `PRODUCT_PER_PAGE` | number | `8` | Pagination size in `product.controller.ts`. |
+| `FIREBASE_PROJECT_ID` | string | — | Firebase project ID (same as the frontend's `VITE_PROJECT_ID`); required to verify Google sign-in tokens. |
 
 ### Frontend — `ecommerce-frontend/.env` (Vite exposes only `VITE_`-prefixed vars)
 

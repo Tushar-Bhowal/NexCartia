@@ -3,18 +3,19 @@ import {
   AllOrdersResponse,
   MessageResponse,
   NewOrderRequest,
+  NewOrderResponse,
   OrderDetailsResponse,
-  UpdateOrderRequest,
 } from "../../types/api-types";
 
 export const orderApi = createApi({
   reducerPath: "orderApi",
   baseQuery: fetchBaseQuery({
     baseUrl: `${import.meta.env.VITE_SERVER}/api/v1/order/`,
+    credentials: "include",
   }),
   tagTypes: ["orders"],
   endpoints: (builder) => ({
-    newOrder: builder.mutation<MessageResponse, NewOrderRequest>({
+    newOrder: builder.mutation<NewOrderResponse, NewOrderRequest>({
       query: (order) => ({
         url: "new",
         method: "POST",
@@ -22,26 +23,26 @@ export const orderApi = createApi({
       }),
       invalidatesTags: ["orders"],
     }),
-    updateOrder: builder.mutation<MessageResponse, UpdateOrderRequest>({
-      query: ({ userId, orderId }) => ({
-        url: `${orderId}?id=${userId}`,
+    updateOrder: builder.mutation<MessageResponse, string>({
+      query: (orderId) => ({
+        url: orderId,
         method: "PUT",
       }),
       invalidatesTags: ["orders"],
     }),
-    deleteOrder: builder.mutation<MessageResponse, UpdateOrderRequest>({
-      query: ({ userId, orderId }) => ({
-        url: `${orderId}?id=${userId}`,
+    deleteOrder: builder.mutation<MessageResponse, string>({
+      query: (orderId) => ({
+        url: orderId,
         method: "DELETE",
       }),
       invalidatesTags: ["orders"],
     }),
-    myOrders: builder.query<AllOrdersResponse, string>({
-      query: (id) => `my?id=${id}`,
+    myOrders: builder.query<AllOrdersResponse, void>({
+      query: () => "my",
       providesTags: ["orders"],
     }),
-    allOrders: builder.query<AllOrdersResponse, string>({
-      query: (id) => `all?id=${id}`,
+    allOrders: builder.query<AllOrdersResponse, void>({
+      query: () => "all",
       providesTags: ["orders"],
     }),
     orderDetails: builder.query<OrderDetailsResponse, string>({
@@ -58,4 +59,4 @@ export const {
   useMyOrdersQuery,
   useAllOrdersQuery,
   useOrderDetailsQuery,
-} = orderApi; 
+} = orderApi;

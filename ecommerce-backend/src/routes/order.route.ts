@@ -1,5 +1,6 @@
 import express from "express";
 import { adminOnly } from "../middlewares/auth.js";
+import { verifyToken } from "../middlewares/verifytoken.js";
 import {
   allOrders,
   deleteOrder,
@@ -12,18 +13,18 @@ import {
 const app = express.Router();
 
 // route - /api/v1/order/new
-app.post("/new", newOrder);
+app.post("/new", verifyToken, newOrder);
 
 // route - /api/v1/order/my
-app.get("/my", myOrders);
+app.get("/my", verifyToken, myOrders);
 
-// route - /api/v1/order/my
+// route - /api/v1/order/all
 app.get("/all", adminOnly, allOrders);
 
 // route - /api/v1/order/dynamicID
 app
   .route("/:id")
-  .get(getSingleOrder)
+  .get(verifyToken, getSingleOrder)
   .put(adminOnly, processOrder)
   .delete(adminOnly, deleteOrder);
 

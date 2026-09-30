@@ -20,9 +20,15 @@ const schema = new mongoose.Schema(
         required: true,
       },
       pinCode: {
-        type: Number,
+        type: String,
         required: true,
       },
+    },
+
+    paymentIntentId: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
 
     user: {

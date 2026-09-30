@@ -6,14 +6,17 @@ import {
   HiOutlineEye,
   HiOutlineEyeOff,
 } from "react-icons/hi";
-import { v4 as uuidv4 } from "uuid";
 import loginImage from "../assets/login.jpg";
 import { Link, useNavigate } from "react-router-dom";
 import PasswordStrengthMeter from "@/components/Shared/PasswordStrengthMeter";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/firebase";
 import InputLoader from "@/components/Shared/InputLoader";
-import { useSigninMutation, useSingupMutation } from "@/redux/api/userApi";
+import {
+  useGoogleLoginMutation,
+  useSigninMutation,
+  useSingupMutation,
+} from "@/redux/api/userApi";
 import { MessageResponse } from "@/types/api-types";
 import { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import toast from "react-hot-toast";
@@ -96,6 +99,8 @@ const AuthForm: React.FC = () => {
 
   const [signup, { isLoading: isSignupLoading }] = useSingupMutation();
   const [signin, { isLoading: isSigninLoading }] = useSigninMutation();
+  const [googleLogin, { isLoading: isGoogleLoading }] =
+    useGoogleLoginMutation();
   const navigate = useNavigate();
 
   const toggleAuthMode = () => {
@@ -148,16 +153,12 @@ const AuthForm: React.FC = () => {
 
   const handleSignUp = async () => {
     try {
-      const userId = uuidv4();
       const response = await signup({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        photo: "null",
         gender: formData.gender,
-        role: "user",
         dob: formData.dateOfBirth,
-        _id: userId,
       }).unwrap();
 
       toast.success(response.message);
@@ -165,7 +166,7 @@ const AuthForm: React.FC = () => {
       setFormData(initialFormData);
     } catch (error) {
       const err = error as FetchBaseQueryError;
-      const message = (err.data as MessageResponse).message;
+      const message = (err.data as MessageResponse)?.message;
       toast.error(message || "Sign Up Failed");
     }
   };
@@ -182,44 +183,27 @@ const AuthForm: React.FC = () => {
       setFormData(initialFormData);
     } catch (error) {
       const err = error as FetchBaseQueryError;
-      const message = (err.data as MessageResponse).message;
+      const message = (err.data as MessageResponse)?.message;
       toast.error(message || "Sign In Failed");
     }
   };
 
   const googleLoginHandler = async () => {
+    // New Google accounts still need gender + date of birth, which only the sign-up form collects
+    const withDetails =
+      isSignUp && !!formData.gender && !!formData.dateOfBirth;
+
     try {
       const provider = new GoogleAuthProvider();
       const { user } = await signInWithPopup(auth, provider);
+      const idToken = await user.getIdToken();
 
-      // Returning users: the Firebase uid is their stored password, so try a normal sign-in first.
-      try {
-        const res = await signin({
-          email: user.email!,
-          password: user.uid,
-        }).unwrap();
-        toast.success(res.message);
-        navigate("/");
-        return;
-      } catch {
-        // No matching account — registration is required, and that needs gender + date of birth.
-        if (!isSignUp || !validateForm(true)) {
-          toast.error(
-            "No account found for that Google email. Switch to Sign Up and add your details to continue."
-          );
-          return;
-        }
-      }
-
-      const res = await signup({
-        name: user.displayName!,
-        email: user.email!,
-        password: user.uid,
-        photo: user.photoURL!,
-        gender: formData.gender,
-        role: "user",
-        dob: formData.dateOfBirth,
-        _id: user.uid,
+      const res = await googleLogin({
+        idToken,
+        ...(withDetails && {
+          gender: formData.gender,
+          dob: formData.dateOfBirth,
+        }),
       }).unwrap();
 
       toast.success(res.message);
@@ -227,12 +211,17 @@ const AuthForm: React.FC = () => {
       setFormData(initialFormData);
     } catch (error) {
       const err = error as FetchBaseQueryError;
+      if (err.status === 404 && isSignUp) validateForm(true);
       const message = (err.data as MessageResponse)?.message;
       toast.error(message || "Google authentication failed");
+    } finally {
+      // the server session is what matters; don't keep a Firebase session around
+      await auth.signOut().catch(() => undefined);
     }
   };
 
-  const isLoading = isSignUp ? isSignupLoading : isSigninLoading;
+  const isLoading =
+    (isSignUp ? isSignupLoading : isSigninLoading) || isGoogleLoading;
 
   return (
     <div className="flex min-h-screen pt-16">

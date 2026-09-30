@@ -1,12 +1,10 @@
 import {
   Bar,
-  CartItem,
   CouponType,
   Line,
   Order,
   Pie,
   Product,
-  Review,
   ShippingInfo,
   Stats,
   User,
@@ -38,10 +36,6 @@ export type UserResponse = {
 export type AllProductsResponse = {
   success: boolean;
   products: Product[];
-};
-export type AllReviewsResponse = {
-  success: boolean;
-  reviews: Review[];
 };
 export type CategoriesResponse = {
   success: boolean;
@@ -97,52 +91,66 @@ export type LineResponse = {
   charts: Line;
 };
 
-export type NewReviewRequest = {
-  rating: number;
-  comment: string;
-  userId?: string;
-  productId: string;
-};
-
-export type DeleteReviewRequest = {
-  userId?: string;
-  reviewId: string;
-};
-
-export type NewProductRequest = {
-  id: string;
-  formData: FormData;
-};
-
 export type UpdateProductRequest = {
-  userId: string;
   productId: string;
   formData: FormData;
 };
-export type DeleteProductRequest = {
-  userId: string;
+
+export type NewUserRequest = {
+  name: string;
+  email: string;
+  password: string;
+  gender: string;
+  dob: string;
+};
+
+export type GoogleLoginRequest = {
+  idToken: string;
+  gender?: string;
+  dob?: string;
+};
+
+export type CartLine = {
   productId: string;
+  quantity: number;
+};
+
+export type CreatePaymentRequest = {
+  items: CartLine[];
+  shippingInfo: ShippingInfo;
+  coupon?: string;
+};
+
+export type CreatePaymentResponse = {
+  success: boolean;
+  clientSecret: string;
 };
 
 export type NewOrderRequest = {
-  shippingInfo: ShippingInfo;
-  orderItems: CartItem[];
-  subtotal: number;
-  tax: number;
-  shippingCharges: number;
-  discount: number;
+  paymentIntentId: string;
+  items: CartLine[];
+  coupon?: string;
+};
+
+export type PlacedOrder = {
+  _id: string;
   total: number;
-  user: string;
+  createdAt: string;
+  paymentMethod: string;
 };
 
-export type UpdateOrderRequest = {
-  userId: string;
-  orderId: string;
+export type NewOrderResponse = MessageResponse & {
+  order: PlacedOrder;
 };
 
-export type DeleteUserRequest = {
-  userId: string;
-  adminUserId: string;
+export type DiscountResponse = {
+  success: boolean;
+  discount: number;
+};
+
+export type NewCouponRequest = {
+  coupon: string;
+  amount: number;
 };
 
 export type AllDiscountResponse = {
@@ -150,7 +158,32 @@ export type AllDiscountResponse = {
   coupons: CouponType[];
 };
 
-export type SingleDiscountResponse = {
+export type ContactMessage = {
+  _id: string;
+  name: string;
+  email: string;
+  message: string;
+  createdAt: string;
+};
+
+export type Subscriber = {
+  _id: string;
+  email: string;
+  createdAt: string;
+};
+
+export type NewContactRequest = {
+  name: string;
+  email: string;
+  message: string;
+};
+
+export type AllMessagesResponse = {
   success: boolean;
-  coupon: CouponType;
+  messages: ContactMessage[];
+};
+
+export type AllSubscribersResponse = {
+  success: boolean;
+  subscribers: Subscriber[];
 };

@@ -2,7 +2,18 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { CartReducerInitialState } from "../../types/reducer-types";
 import { CartItem, ShippingInfo } from "../../types/types";
 
-const initialState: CartReducerInitialState = {
+export const CART_STORAGE_KEY = "cartItems";
+
+const loadCartItems = (): CartItem[] => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+};
+
+const emptyCart: CartReducerInitialState = {
   loading: false,
   cartItems: [],
   subtotal: 0,
@@ -18,6 +29,11 @@ const initialState: CartReducerInitialState = {
     country: "",
     pinCode: "",
   },
+};
+
+const initialState: CartReducerInitialState = {
+  ...emptyCart,
+  cartItems: loadCartItems(),
 };
 
 export const cartReducer = createSlice({
@@ -44,6 +60,7 @@ export const cartReducer = createSlice({
       state.loading = false;
     },
 
+    // Mirrors calculateOrderTotals in the backend so the shown total is what gets charged
     calculatePrice: (state) => {
       const subtotal = state.cartItems.reduce(
         (total, item) => total + item.price * item.quantity,
@@ -51,23 +68,23 @@ export const cartReducer = createSlice({
       );
 
       state.subtotal = subtotal;
-      state.shippingCharges = state.subtotal > 1000 ? 0 : 200;
-      state.tax = Math.round(state.subtotal * 0.18);
-      state.total =
-        state.subtotal + state.tax + state.shippingCharges - state.discount;
+      state.shippingCharges = subtotal > 1000 ? 0 : 200;
+      state.tax = Math.round(subtotal * 0.18);
+      const beforeDiscount = subtotal + state.tax + state.shippingCharges;
+      state.total = beforeDiscount - Math.min(state.discount, beforeDiscount);
     },
 
     discountApplied: (state, action: PayloadAction<number>) => {
       state.discount = action.payload;
     },
 
-    saveCoupon: (state, action: PayloadAction<string>) => {
+    saveCoupon: (state, action: PayloadAction<string | undefined>) => {
       state.coupon = action.payload;
     },
     saveShippingInfo: (state, action: PayloadAction<ShippingInfo>) => {
       state.shippingInfo = action.payload;
     },
-    resetCart: () => initialState,
+    resetCart: () => emptyCart,
   },
 });
 

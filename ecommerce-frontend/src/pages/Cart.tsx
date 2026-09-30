@@ -8,26 +8,29 @@ import {
   removeCartItem,
   saveCoupon,
 } from "@/redux/reducer/cartReducer";
-import { server } from "@/redux/store";
+import { useLazyDiscountQuery } from "@/redux/api/paymentApi";
 import { CartReducerInitialState } from "@/types/reducer-types";
 import { CartItem } from "@/types/types";
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { VscError } from "react-icons/vsc";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const Cart = () => {
-  const { cartItems, subtotal, tax, total, shippingCharges, discount } =
+  const { cartItems, subtotal, tax, total, shippingCharges, discount, coupon } =
     useSelector(
       (state: { cartReducer: CartReducerInitialState }) => state.cartReducer
     );
 
   const dispatch = useDispatch();
 
-  const [couponCode, setCouponCode] = useState<string>("");
-  const [isValidCouponCode, setIsValidCouponCode] = useState<boolean>(false);
+  const [couponCode, setCouponCode] = useState<string>(coupon ?? "");
+  const [couponStatus, setCouponStatus] = useState<"valid" | "invalid" | null>(
+    coupon ? "valid" : null
+  );
+  const [checkDiscount, { isFetching: checkingCoupon }] =
+    useLazyDiscountQuery();
 
   const incrementHandler = (cartItem: CartItem) => {
     if (cartItem.quantity >= cartItem.stock) return;
@@ -45,37 +48,32 @@ const Cart = () => {
     dispatch(removeCartItem(productId));
   };
 
-  useEffect(() => {
-    const { token: cancelToken, cancel } = axios.CancelToken.source();
+  const applyCouponHandler = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const code = couponCode.trim();
 
-    const timeOutId = setTimeout(() => {
-      axios
-        .get(`${server}/api/v1/payment/discount?coupon=${couponCode}`, {
-          cancelToken,
-        })
-        .then((res) => {
-          dispatch(discountApplied(res.data.discount));
-          dispatch(saveCoupon(couponCode));
-          setIsValidCouponCode(true);
-          dispatch(calculatePrice());
-        })
-        .catch(() => {
-          dispatch(discountApplied(0));
-          setIsValidCouponCode(false);
-          dispatch(calculatePrice());
-        });
-    }, 1000);
-
-    return () => {
-      clearTimeout(timeOutId);
-      cancel();
-      setIsValidCouponCode(false);
-    };
-  }, [couponCode]);
+    if (!code) {
+      dispatch(discountApplied(0));
+      dispatch(saveCoupon(undefined));
+      setCouponStatus(null);
+    } else {
+      try {
+        const res = await checkDiscount(code).unwrap();
+        dispatch(discountApplied(res.discount));
+        dispatch(saveCoupon(code));
+        setCouponStatus("valid");
+      } catch {
+        dispatch(discountApplied(0));
+        dispatch(saveCoupon(undefined));
+        setCouponStatus("invalid");
+      }
+    }
+    dispatch(calculatePrice());
+  };
 
   useEffect(() => {
     dispatch(calculatePrice());
-  }, [cartItems]);
+  }, [cartItems, dispatch]);
 
   // Animation variants
   const containerVariants = {
@@ -199,18 +197,21 @@ const Cart = () => {
               >
                 <span className="text-sm font-normal text-gray-500"> or </span>
                 <Link
-                  to="/products"
+                  to="/search"
                   title=""
                   className="inline-flex items-center gap-2 text-sm font-medium text-primary-700 underline hover:no-underline"
                 >
                   Continue Shopping
                 </Link>
               </motion.div>
-              <Button className="w-full bg-green-150 hover:bg-green-150/80">
-                <Link to="/shipping" className="text-white">
-                  Proceed to Checkout
-                </Link>
-              </Button>
+              {cartItems.length > 0 && (
+                <Button
+                  asChild
+                  className="w-full bg-green-150 text-white hover:bg-green-150/80"
+                >
+                  <Link to="/shipping">Proceed to Checkout</Link>
+                </Button>
+              )}
             </motion.div>
 
             <motion.div
@@ -220,31 +221,38 @@ const Cart = () => {
               <div className="mb-2 text-sm font-medium text-gray-900 ">
                 Do you have a coupon or gift card?
               </div>
-              <div className="flex space-x-4">
+              <form className="flex space-x-4" onSubmit={applyCouponHandler}>
                 <div>
                   <input
                     type="text"
                     placeholder="Coupon Code"
                     value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value);
+                      setCouponStatus(null);
+                    }}
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500"
                   />
-                  {couponCode &&
-                    (isValidCouponCode ? (
-                      <span className="text-green-600 text-sm">
-                        ₹{discount} off using the <code>{couponCode}</code>
-                      </span>
-                    ) : (
-                      <span className="text-red-600">
-                        Invalid Coupon <VscError />
-                      </span>
-                    ))}
+                  {couponStatus === "valid" && (
+                    <span className="text-green-600 text-sm">
+                      ₹{discount} off using the <code>{coupon}</code>
+                    </span>
+                  )}
+                  {couponStatus === "invalid" && (
+                    <span className="flex items-center gap-1 text-sm text-red-600">
+                      Invalid Coupon <VscError />
+                    </span>
+                  )}
                 </div>
 
-                <Button className="bg-green-150 hover:bg-green-150/80">
-                  Apply Code
+                <Button
+                  type="submit"
+                  disabled={checkingCoupon}
+                  className="bg-green-150 hover:bg-green-150/80"
+                >
+                  {checkingCoupon ? "Checking..." : "Apply Code"}
                 </Button>
-              </div>
+              </form>
             </motion.div>
           </motion.div>
         </div>

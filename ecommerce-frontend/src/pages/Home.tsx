@@ -31,7 +31,7 @@ const promises = [
 ];
 
 const Home = () => {
-  const { data, isError, isLoading } = useLatestProductsQuery("");
+  const { data, isError, isLoading } = useLatestProductsQuery();
 
   const dispatch = useDispatch();
 

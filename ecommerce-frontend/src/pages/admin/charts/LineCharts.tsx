@@ -1,28 +1,24 @@
+import { useEffect } from "react";
 import AdminSidebar from "@/components/Shared/admin/AdminSidebar";
 import { LineChart } from "@/components/Shared/admin/Charts";
 import { LineSkeleton } from "@/components/Shared/Loader";
 import { useLineQuery } from "@/redux/api/dashboardApi";
-import { RootState } from "@/redux/store";
 import { CustomError } from "@/types/api-types";
 import { getLastMonths } from "@/utils/Features";
 import toast from "react-hot-toast";
-import { useSelector } from "react-redux";
 
 const { last12Months: months } = getLastMonths();
 const BarCharts = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
-  const userId = user?._id;
-  const { isLoading, data, error, isError } = useLineQuery(userId!);
+  const { isLoading, data, error, isError } = useLineQuery();
 
   const products = data?.charts.products || [];
   const users = data?.charts.users || [];
   const revenue = data?.charts.revenue || [];
   const discount = data?.charts.discount || [];
 
-  if (isError) {
-    const err = error as CustomError;
-    toast.error(err.data.message);
-  }
+  useEffect(() => {
+    if (isError) toast.error((error as CustomError).data?.message);
+  }, [isError, error]);
   return (
     <div className="admin-container xl:grid xl:grid-cols-6 min-h-screen bg-gray-50/50">
       <div>

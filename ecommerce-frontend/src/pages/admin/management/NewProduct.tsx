@@ -1,15 +1,13 @@
+import toast from "react-hot-toast";
 import { useState, FormEvent } from "react";
 import AdminSidebar from "../../../components/Shared/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
-import { useSelector } from "react-redux";
 import { useNewProductMutation } from "@/redux/api/productApi";
 import { useNavigate } from "react-router-dom";
 import { responseToast } from "@/utils/Features";
-import { RootState } from "@/redux/store";
 import { useFileHandler } from "6pp";
 
 const NewProduct = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [name, setName] = useState<string>("");
   const [category, setCategory] = useState<string>("");
@@ -44,13 +42,12 @@ const NewProduct = () => {
         formData.append("photos", file);
       });
 
-      const userId = user?._id;
-      const res = await newProduct({ id: userId!, formData });
+      const res = await newProduct(formData);
 
       responseToast(res, navigate, "/admin/product");
-    } catch (error) {
-      console.log(error);
-    }finally {
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
       setIsLoading(false);
     }
   };

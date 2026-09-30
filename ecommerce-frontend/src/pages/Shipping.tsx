@@ -1,31 +1,28 @@
 import React, { useState, ChangeEvent, useEffect, FormEvent } from "react";
-import {  CreditCard } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import Breadcrumb from "@/components/Shared/Breadcrumb";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import axios from "axios";
-import { RootState, server } from "@/redux/store";
+import { RootState } from "@/redux/store";
 import { saveShippingInfo } from "@/redux/reducer/cartReducer";
+import { useCreatePaymentMutation } from "@/redux/api/paymentApi";
+import { CustomError } from "@/types/api-types";
 import toast from "react-hot-toast";
 
 const AddressForm: React.FC = () => {
-  const { cartItems, coupon } = useSelector(
-    (state: RootState) => state.cartReducer
-  );
-  const { user } = useSelector((state: RootState) => state.userReducer);
+  const {
+    cartItems,
+    coupon,
+    shippingInfo: savedShippingInfo,
+  } = useSelector((state: RootState) => state.cartReducer);
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [createPayment, { isLoading }] = useCreatePaymentMutation();
 
-  const [shippingInfo, setShippingInfo] = useState({
-    address: "",
-    city: "",
-    state: "",
-    country: "",
-    pinCode: "",
-  });
+  const [shippingInfo, setShippingInfo] = useState(savedShippingInfo);
 
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -36,38 +33,32 @@ const AddressForm: React.FC = () => {
     }));
   };
 
-
   const submitHandler = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     dispatch(saveShippingInfo(shippingInfo));
 
     try {
-      const { data } = await axios.post(
-        `${server}/api/v1/payment/create?id=${user?._id}`,
-        {
-          items: cartItems,
-          shippingInfo,
-          coupon,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const data = await createPayment({
+        items: cartItems.map(({ productId, quantity }) => ({
+          productId,
+          quantity,
+        })),
+        shippingInfo,
+        coupon,
+      }).unwrap();
 
       navigate("/payment", {
         state: data.clientSecret,
       });
     } catch (error) {
-      console.log(error);
-      toast.error("Something went wrong");
+      const err = error as CustomError;
+      toast.error(err.data?.message || "Something went wrong");
     }
   };
 
   useEffect(() => {
     if (cartItems.length <= 0) navigate("/cart");
-  }, [cartItems]);
+  }, [cartItems, navigate]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -133,15 +124,16 @@ const AddressForm: React.FC = () => {
                 className="w-full rounded-md border p-2"
               >
                 <option value="">Select Country</option>
-                <option value="India">India</option>
-                <option value="USA">USA</option>
+                <option value="IN">India</option>
+                <option value="US">USA</option>
               </select>
             </div>
             <div>
               <label className="block text-gray-700 mb-1">PIN Code</label>
               <input
                 required
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="Pin Code"
                 name="pinCode"
                 value={shippingInfo.pinCode}
@@ -151,42 +143,16 @@ const AddressForm: React.FC = () => {
             </div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
-                type="submit" // Add type="submit"
+                type="submit"
+                disabled={isLoading}
                 className="w-full flex items-center justify-center gap-2"
               >
                 <CreditCard className="h-5 w-5" />
-                Proceed to Payment
+                {isLoading ? "Preparing payment..." : "Proceed to Payment"}
               </Button>
             </motion.div>
           </form>
         </div>
-        {/* 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="h-[600px] relative rounded-lg overflow-hidden shadow-lg"
-        >
-          <iframe
-            src={mapSrc}
-            width="100%"
-            height="100%"
-            style={{ border: 0 }}
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            className="absolute inset-0"
-          />
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="absolute bottom-4 left-4 bg-white px-3 py-1 rounded-full shadow-lg flex items-center"
-          >
-            <MapPin className="h-5 w-5 text-blue-600 mr-2" />
-            <span className="text-sm font-medium">Your Location</span>
-          </motion.div>
-        </motion.div> */}
       </motion.div>
     </div>
   );

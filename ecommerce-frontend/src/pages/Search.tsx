@@ -8,7 +8,7 @@ import {
 import { addToCart } from "@/redux/reducer/cartReducer";
 import { CustomError } from "@/types/api-types";
 import { CartItem } from "@/types/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { BiSearch } from "react-icons/bi";
 import { useDispatch } from "react-redux";
@@ -21,7 +21,7 @@ const Search = () => {
     isLoading: loadingCategories,
     isError,
     error,
-  } = useCategoriesQuery("");
+  } = useCategoriesQuery();
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
@@ -55,16 +55,15 @@ const Search = () => {
   };
   const totalPage = searchedData?.totalPage;
   const isPrevPage = page > 1;
-  const isNextPage = page < totalPage!;
+  const isNextPage = page < (totalPage ?? 1);
 
-  if (isError) {
-    const err = error as CustomError;
-    toast.error(err.data.message);
-  }
-  if (productIsError) {
-    const err = productError as CustomError;
-    toast.error(err.data.message);
-  }
+  useEffect(() => {
+    if (isError) toast.error((error as CustomError).data?.message);
+  }, [isError, error]);
+
+  useEffect(() => {
+    if (productIsError) toast.error((productError as CustomError).data?.message);
+  }, [productIsError, productError]);
 
   return (
     <div>
@@ -94,7 +93,10 @@ const Search = () => {
             <h4 className="text-lg font-semibold mb-2">Sort</h4>
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value)}
+              onChange={(e) => {
+                setSort(e.target.value);
+                setPage(1);
+              }}
               className="px-4 w-full border-2 py-2 rounded-md text-sm outline-none"
             >
               <option value="">None</option>
@@ -113,7 +115,10 @@ const Search = () => {
               max={100000}
               value={maxPrice}
               className="w-full"
-              onChange={(e) => setMaxPrice(Number(e.target.value))}
+              onChange={(e) => {
+                setMaxPrice(Number(e.target.value));
+                setPage(1);
+              }}
             />
           </div>
 
@@ -135,7 +140,10 @@ const Search = () => {
                     key={cat}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setCategory(cat === "ALL" ? "" : cat)}
+                    onClick={() => {
+                      setCategory(cat === "ALL" ? "" : cat);
+                      setPage(1);
+                    }}
                     className={`w-full text-left px-3 py-2 rounded-md text-sm ${
                       category === cat || (cat === "ALL" && category === "")
                         ? "bg-green-50 text-green-500 font-medium"
@@ -157,7 +165,10 @@ const Search = () => {
               type="text"
               placeholder="Search by name..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
 
             <button

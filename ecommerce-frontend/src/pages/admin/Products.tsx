@@ -7,11 +7,9 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { FaPlus } from "react-icons/fa";
 import { useAllProductsQuery } from "@/redux/api/productApi";
-import { useSelector } from "react-redux";
 
 import { CustomError } from "@/types/api-types";
 import toast from "react-hot-toast";
-import { RootState} from "@/redux/store";
 import { LineSkeleton } from "@/components/Shared/Loader";
 
 interface DataType {
@@ -46,18 +44,14 @@ const columns: ColumnDef<DataType>[] = [
 ];
 
 const Products = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
 
-  const userId = user?._id;
-
-  const { isLoading, isError, error, data } = useAllProductsQuery(userId!);
+  const { isLoading, isError, error, data } = useAllProductsQuery();
 
   const [rows, setRows] = useState<DataType[]>([]);
 
-  if (isError) {
-    const err = error as CustomError;
-    toast.error(err.data.message);
-  }
+  useEffect(() => {
+    if (isError) toast.error((error as CustomError).data?.message);
+  }, [isError, error]);
 
   useEffect(() => {
     if (data)

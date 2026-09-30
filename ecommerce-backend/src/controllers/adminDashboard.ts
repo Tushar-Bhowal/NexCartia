@@ -3,7 +3,12 @@ import { TryCatch } from "../middlewares/error.js";
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
 import { User } from "../models/user.model.js";
-import { calculatePercentage, getChartData, getInventories } from "../utils/features.js";
+import {
+  calculatePercentage,
+  getChartData,
+  getInventories,
+  getMonthDiff,
+} from "../utils/features.js";
 
 
 
@@ -23,9 +28,10 @@ export const getDashboardStats = TryCatch(async (req, res, next) => {
       end: today,
     };
 
+    // end is exclusive ($lt) so orders placed on the last day of the month count
     const lastMonth = {
       start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-      end: new Date(today.getFullYear(), today.getMonth(), 0),
+      end: thisMonth.start,
     };
 
     const thisMonthProductsPromise = Product.find({
@@ -38,7 +44,7 @@ export const getDashboardStats = TryCatch(async (req, res, next) => {
     const lastMonthProductsPromise = Product.find({
       createdAt: {
         $gte: lastMonth.start,
-        $lte: lastMonth.end,
+        $lt: lastMonth.end,
       },
     });
 
@@ -52,7 +58,7 @@ export const getDashboardStats = TryCatch(async (req, res, next) => {
     const lastMonthUsersPromise = User.find({
       createdAt: {
         $gte: lastMonth.start,
-        $lte: lastMonth.end,
+        $lt: lastMonth.end,
       },
     });
 
@@ -66,7 +72,7 @@ export const getDashboardStats = TryCatch(async (req, res, next) => {
     const lastMonthOrdersPromise = Order.find({
       createdAt: {
         $gte: lastMonth.start,
-        $lte: lastMonth.end,
+        $lt: lastMonth.end,
       },
     });
 
@@ -79,6 +85,7 @@ export const getDashboardStats = TryCatch(async (req, res, next) => {
 
     const latestTransactionsPromise = Order.find({})
       .select(["orderItems", "discount", "total", "status"])
+      .sort({ createdAt: -1 })
       .limit(4);
 
     const [
@@ -151,7 +158,7 @@ export const getDashboardStats = TryCatch(async (req, res, next) => {
 
     lastSixMonthOrders.forEach((order) => {
       const creationDate = order.createdAt;
-      const monthDiff = (today.getMonth() - creationDate.getMonth() + 12) % 12;
+      const monthDiff = getMonthDiff(today, creationDate);
 
       if (monthDiff < 6) {
         orderMonthCounts[6 - monthDiff - 1] += 1;

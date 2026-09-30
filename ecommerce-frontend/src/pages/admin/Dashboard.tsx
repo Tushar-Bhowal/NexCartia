@@ -6,8 +6,6 @@ import { HiTrendingDown, HiTrendingUp } from "react-icons/hi";
 import { BarChart, DoughnutChart } from "../../components/Shared/admin/Charts";
 import { BiMaleFemale } from "react-icons/bi";
 import Table from "../../components/Shared/admin/DashBoardTable";
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
 import { useStatsQuery } from "@/redux/api/dashboardApi";
 import { Navigate } from "react-router-dom";
 import { LineSkeleton } from "@/components/Shared/Loader";
@@ -16,9 +14,7 @@ import { getLastMonths } from "@/utils/Features";
 const { last6Months: months } = getLastMonths();
 
 const Dashboard = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
-  const userId = user?._id;
-  const { isLoading, data, isError } = useStatsQuery(userId!);
+  const { isLoading, data, isError } = useStatsQuery();
   const dataStats = data?.stats;
   const stats = dataStats!;
 

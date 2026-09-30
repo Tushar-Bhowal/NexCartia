@@ -12,7 +12,7 @@ import {
   newProduct,
   updateProduct,
 } from "../controllers/product.controller.js";
-import { mutliUpload, singleUpload } from "../middlewares/multer.js";
+import { mutliUpload } from "../middlewares/multer.js";
 
 const app = express.Router();
 //To Create New Product  - /api/v1/product/new

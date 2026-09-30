@@ -1,7 +1,6 @@
 export type User = {
   name: string;
   email: string;
-  password: string;
   photo?: string;
   gender: string;
   role: string;
@@ -18,25 +17,10 @@ export type Product = {
   stock: number;
   category: string;
   gender: string;
-  ratings: number;
-  numOfReviews: number;
-  description: string;
   photos: {
     url: string;
     public_id: string;
   }[];
-  _id: string;
-};
-
-export type Review = {
-  rating: number;
-  comment: string;
-  product: string;
-  user: {
-    name: string;
-    photo: string;
-    _id: string;
-  };
   _id: string;
 };
 
@@ -67,10 +51,12 @@ export type Order = {
   discount: number;
   total: number;
   status: string;
+  // null when the customer's account has since been deleted
   user: {
     name: string;
     _id: string;
-  };
+  } | null;
+  createdAt: string;
   _id: string;
 };
 

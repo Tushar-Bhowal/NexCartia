@@ -3,11 +3,9 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { ReactElement, useState, useEffect } from "react";
 import TableHOC from "../../components/Shared/admin/TableHOC";
-import { useSelector } from "react-redux";
 import { useAllOrdersQuery } from "@/redux/api/orderApi";
 import { CustomError } from "@/types/api-types";
 import toast from "react-hot-toast";
-import { RootState} from "@/redux/store";
 import { LineSkeleton } from "@/components/Shared/Loader";
 
 interface DataType {
@@ -47,24 +45,19 @@ const columns: ColumnDef<DataType>[] = [
 ];
 
 const Transaction = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
 
-  const userId = user?._id;
-
-  const { isLoading, isError, error, data } = useAllOrdersQuery(userId!);
+  const { isLoading, isError, error, data } = useAllOrdersQuery();
   const [rows, setRows] = useState<DataType[]>([]);
 
-  if (isError) {
-    const err = error as CustomError;
-    toast.error(err.data.message);
-  }
-  console.log(data?.orders);
+  useEffect(() => {
+    if (isError) toast.error((error as CustomError).data?.message);
+  }, [isError, error]);
 
   useEffect(() => {
     if (data)
       setRows(
         data.orders.map((i) => ({
-          user: i.user.name,
+          user: i.user?.name ?? "Deleted user",
           amount: i.total,
           discount: i.discount,
           quantity: i.orderItems.length,

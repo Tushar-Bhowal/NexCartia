@@ -1,8 +1,32 @@
 import Breadcrumb from "@/components/Shared/Breadcrumb";
 import FAQ from "@/components/Shared/FAQ";
 import { Button } from "@/components/ui/button";
+import { useSendMessageMutation } from "@/redux/api/messageApi";
+import { CustomError } from "@/types/api-types";
+import { ChangeEvent, FormEvent, useState } from "react";
+import toast from "react-hot-toast";
+
+const emptyForm = { name: "", email: "", message: "" };
 
 const Contact = () => {
+  const [form, setForm] = useState(emptyForm);
+  const [sendMessage, { isLoading }] = useSendMessageMutation();
+
+  const changeHandler = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const submitHandler = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      const res = await sendMessage(form).unwrap();
+      toast.success(res.message);
+      setForm(emptyForm);
+    } catch (error) {
+      toast.error((error as CustomError).data?.message || "Could not send message");
+    }
+  };
+
   return (
     <div>
       <div className="mt-12">
@@ -25,24 +49,45 @@ const Contact = () => {
         </div>
 
         <div className="md:w-1/2 w-full">
-          <form className="p-6 rounded-lg space-y-4">
+          <form className="p-6 rounded-lg space-y-4" onSubmit={submitHandler}>
             <input
               type="text"
+              name="name"
+              required
+              maxLength={100}
+              value={form.name}
+              onChange={changeHandler}
+              aria-label="Name"
               placeholder="Name"
               className="w-full p-3 border bg-gray-200 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-150"
             />
             <input
               type="email"
+              name="email"
+              required
+              value={form.email}
+              onChange={changeHandler}
+              aria-label="Email"
               placeholder="Email"
               className="w-full p-3 border bg-gray-200 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-150"
             />
             <textarea
+              name="message"
+              required
+              maxLength={2000}
+              value={form.message}
+              onChange={changeHandler}
+              aria-label="Message"
               placeholder="Message"
               className="w-full p-3 border bg-gray-200 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-150"
               rows={4}
             />
-            <Button type="submit" className="w-full text-white py-3 rounded-md">
-              Sign Up
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full text-white py-3 rounded-md"
+            >
+              {isLoading ? "Sending..." : "Send Message"}
             </Button>
           </form>
         </div>

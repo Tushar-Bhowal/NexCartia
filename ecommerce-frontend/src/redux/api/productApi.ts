@@ -2,10 +2,8 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import {
   AllProductsResponse,
   CategoriesResponse,
-  DeleteProductRequest,
   FilterProductsRequest,
   MessageResponse,
-  NewProductRequest,
   ProductResponse,
   SearchProductsRequest,
   SearchProductsResponse,
@@ -16,18 +14,19 @@ export const productAPI = createApi({
   reducerPath: "productApi",
   baseQuery: fetchBaseQuery({
     baseUrl: `${import.meta.env.VITE_SERVER}/api/v1/product/`,
+    credentials: "include",
   }),
   tagTypes: ["product"],
   endpoints: (builder) => ({
-    latestProducts: builder.query<AllProductsResponse, string>({
+    latestProducts: builder.query<AllProductsResponse, void>({
       query: () => "latest",
       providesTags: ["product"],
     }),
-    allProducts: builder.query<AllProductsResponse, string>({
-      query: (id) => `admin-products?id=${id}`,
+    allProducts: builder.query<AllProductsResponse, void>({
+      query: () => "admin-products",
       providesTags: ["product"],
     }),
-    categories: builder.query<CategoriesResponse, string>({
+    categories: builder.query<CategoriesResponse, void>({
       query: () => `categories`,
       providesTags: ["product"],
     }),
@@ -36,11 +35,11 @@ export const productAPI = createApi({
       SearchProductsRequest
     >({
       query: ({ price, search, sort, category, page }) => {
-        let base = `all?search=${search}&page=${page}`;
+        let base = `all?search=${encodeURIComponent(search)}&page=${page}`;
 
         if (price) base += `&price=${price}`;
         if (sort) base += `&sort=${sort}`;
-        if (category) base += `&category=${category}`;
+        if (category) base += `&category=${encodeURIComponent(category)}`;
 
         return base;
       },
@@ -51,8 +50,8 @@ export const productAPI = createApi({
       query: ({ gender, category, page }) => {
         let base = `filter?page=${page}`;
 
-        if (gender) base += `&gender=${gender}`;
-        if (category) base += `&category=${category}`;
+        if (gender) base += `&gender=${encodeURIComponent(gender)}`;
+        if (category) base += `&category=${encodeURIComponent(category)}`;
 
         return base;
       },
@@ -63,25 +62,25 @@ export const productAPI = createApi({
       query: (id) => id,
       providesTags: ["product"],
     }),
-    newProduct: builder.mutation<MessageResponse, NewProductRequest>({
-      query: ({ formData, id }) => ({
-        url: `new?id=${id}`,
+    newProduct: builder.mutation<MessageResponse, FormData>({
+      query: (formData) => ({
+        url: "new",
         method: "POST",
         body: formData,
       }),
       invalidatesTags: ["product"],
     }),
     updateProduct: builder.mutation<MessageResponse, UpdateProductRequest>({
-      query: ({ formData, userId, productId }) => ({
-        url: `${productId}?id=${userId}`,
+      query: ({ formData, productId }) => ({
+        url: productId,
         method: "PUT",
         body: formData,
       }),
       invalidatesTags: ["product"],
     }),
-    deleteProduct: builder.mutation<MessageResponse, DeleteProductRequest>({
-      query: ({ userId, productId }) => ({
-        url: `${productId}?id=${userId}`,
+    deleteProduct: builder.mutation<MessageResponse, string>({
+      query: (productId) => ({
+        url: productId,
         method: "DELETE",
       }),
       invalidatesTags: ["product"],

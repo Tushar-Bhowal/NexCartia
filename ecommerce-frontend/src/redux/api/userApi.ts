@@ -1,12 +1,12 @@
 import {
   AllUsersResponse,
-  DeleteUserRequest,
+  GoogleLoginRequest,
   MessageResponse,
+  NewUserRequest,
   UserResponse,
 } from "@/types/api-types";
-import { User, UserSignin } from "@/types/types";
+import { UserSignin } from "@/types/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import axios from "axios";
 
 export const userAPI = createApi({
   reducerPath: "userApi",
@@ -16,7 +16,7 @@ export const userAPI = createApi({
   }),
   tagTypes: ["users"],
   endpoints: (builder) => ({
-    singup: builder.mutation<MessageResponse, User>({
+    singup: builder.mutation<MessageResponse, NewUserRequest>({
       query: (user) => ({
         url: "new",
         method: "POST",
@@ -34,16 +34,25 @@ export const userAPI = createApi({
       invalidatesTags: ["users"],
     }),
 
-    deleteUser: builder.mutation<MessageResponse, DeleteUserRequest>({
-      query: ({ userId, adminUserId }) => ({
-        url: `${userId}?id=${adminUserId}`,
+    googleLogin: builder.mutation<MessageResponse, GoogleLoginRequest>({
+      query: (body) => ({
+        url: "google",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["users"],
+    }),
+
+    deleteUser: builder.mutation<MessageResponse, string>({
+      query: (userId) => ({
+        url: userId,
         method: "DELETE",
       }),
       invalidatesTags: ["users"],
     }),
 
-    allUsers: builder.query<AllUsersResponse, string>({
-      query: (id) => `all?id=${id}`,
+    allUsers: builder.query<AllUsersResponse, void>({
+      query: () => "all",
       providesTags: ["users"],
     }),
     checkAuth: builder.query<UserResponse, void>({
@@ -60,29 +69,12 @@ export const userAPI = createApi({
   }),
 });
 
-export const getUser = async (id: string): Promise<UserResponse> => {
-  try {
-    const { data } = await axios.get<UserResponse>(
-      `${import.meta.env.VITE_SERVER}/api/v1/user/${id}`
-    );
-    return data;
-  } catch (error) {
-    // Log the error for debugging purposes
-    if (axios.isAxiosError(error)) {
-      console.error("Error fetching user:", error.message);
-      // Optionally, you can throw a more specific error or handle it differently
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error; // Re-throw the error for further handling
-  }
-};
-
 export const {
   useSingupMutation,
   useAllUsersQuery,
   useDeleteUserMutation,
   useSigninMutation,
+  useGoogleLoginMutation,
   useCheckAuthQuery,
   useLogoutMutation,
 } = userAPI;

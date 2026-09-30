@@ -14,6 +14,7 @@ import productRoute from "./routes/products.route.js";
 import orderRoute from "./routes/order.route.js";
 import paymentRoute from "./routes/payment.route.js";
 import dashboardRoute from "./routes/adminDashboard.route.js";
+import messageRoute from "./routes/message.route.js";
 import cors from "cors";
 
 config({
@@ -53,7 +54,6 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-  console.log("Received request for /");
   res.send("API working with /api/v1");
 });
 
@@ -63,8 +63,7 @@ app.use("/api/v1/product", productRoute);
 app.use("/api/v1/order", orderRoute);
 app.use("/api/v1/payment", paymentRoute);
 app.use("/api/v1/dashboard", dashboardRoute);
-
-app.use("/uploads", express.static("uploads"));
+app.use("/api/v1/message", messageRoute);
 
 // 404 fallback for any unmatched route (Express 5: use a path-less middleware)
 app.use((req, res) => {

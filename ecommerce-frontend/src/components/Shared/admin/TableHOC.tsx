@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import {
   AiOutlineSortAscending,
   AiOutlineSortDescending,
@@ -22,6 +23,8 @@ function TableHOC<T extends object>(
     const table = useReactTable({
       data,
       columns,
+      // rows hold ready-made JSX (badges, links, buttons); the library default would stringify it
+      defaultColumn: { cell: (info) => info.getValue() as ReactNode },
       getCoreRowModel: getCoreRowModel(),
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),

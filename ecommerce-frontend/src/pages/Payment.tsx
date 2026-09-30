@@ -13,9 +13,9 @@ import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { resetCart } from "../redux/reducer/cartReducer";
-import { NewOrderRequest } from "../types/api-types";
+import { CustomError } from "../types/api-types";
 import { useNewOrderMutation } from "@/redux/api/orderApi";
-import { responseToast } from "@/utils/Features";
+import { productAPI } from "@/redux/api/productApi";
 import { RootState } from "@/redux/store";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY);
@@ -26,19 +26,13 @@ const CheckOutForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { user } = useSelector((state: RootState) => state.userReducer);
-
-  const {
-    shippingInfo,
-    cartItems,
-    subtotal,
-    tax,
-    discount,
-    shippingCharges,
-    total,
-  } = useSelector((state: RootState) => state.cartReducer);
+  const { cartItems, coupon } = useSelector(
+    (state: RootState) => state.cartReducer
+  );
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  // Set once Stripe confirms the charge, so a failed order save can be retried without paying again
+  const [paidIntentId, setPaidIntentId] = useState<string>();
 
   const [newOrder] = useNewOrderMutation();
 
@@ -48,36 +42,52 @@ const CheckOutForm = () => {
     if (!stripe || !elements) return;
     setIsProcessing(true);
 
-    const userId = user?._id;
+    try {
+      let paymentIntentId = paidIntentId;
 
-    const orderData: NewOrderRequest = {
-      shippingInfo,
-      orderItems: cartItems,
-      subtotal,
-      tax,
-      discount,
-      shippingCharges,
-      total,
-      user: userId!,
-    };
+      if (!paymentIntentId) {
+        const { paymentIntent, error } = await stripe.confirmPayment({
+          elements,
+          confirmParams: { return_url: window.location.origin },
+          redirect: "if_required",
+        });
 
-    const { paymentIntent, error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.origin },
-      redirect: "if_required",
-    });
+        if (error) {
+          toast.error(error.message || "Something Went Wrong");
+          return;
+        }
 
-    if (error) {
-      setIsProcessing(false);
-      return toast.error(error.message || "Something Went Wrong");
-    }
+        if (paymentIntent.status !== "succeeded") {
+          toast.error(`Payment is ${paymentIntent.status}. Please try again.`);
+          return;
+        }
 
-    if (paymentIntent.status === "succeeded") {
-      const res = await newOrder(orderData);
+        paymentIntentId = paymentIntent.id;
+        setPaidIntentId(paymentIntentId);
+      }
+
+      const res = await newOrder({
+        paymentIntentId,
+        items: cartItems.map(({ productId, quantity }) => ({
+          productId,
+          quantity,
+        })),
+        coupon,
+      }).unwrap();
+
       dispatch(resetCart());
-      responseToast(res, navigate, "/orders");
+      dispatch(productAPI.util.invalidateTags(["product"]));
+      toast.success(res.message);
+      navigate("/payment/success", { replace: true, state: res.order });
+    } catch (error) {
+      const message = (error as CustomError).data?.message;
+      toast.error(
+        message ||
+          "Your payment went through but we couldn't save the order. Please press Retry."
+      );
+    } finally {
+      setIsProcessing(false);
     }
-    setIsProcessing(false);
   };
   return (
     <div className="checkout-container">
@@ -94,7 +104,11 @@ const CheckOutForm = () => {
           type="submit"
           disabled={isProcessing}
         >
-          {isProcessing ? "Processing..." : "Pay"}
+          {isProcessing
+            ? "Processing..."
+            : paidIntentId
+            ? "Retry placing order"
+            : "Pay"}
         </motion.button>
       </form>
     </div>

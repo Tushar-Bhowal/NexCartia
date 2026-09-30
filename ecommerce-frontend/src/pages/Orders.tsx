@@ -4,12 +4,10 @@ import { Link } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import TableHOC from "../components/Shared/admin/TableHOC";
 import Breadcrumb from "@/components/Shared/Breadcrumb";
-import { useSelector } from "react-redux";
 import { useMyOrdersQuery } from "@/redux/api/orderApi";
 import { CustomError } from "@/types/api-types";
 import toast from "react-hot-toast";
 import { LineSkeleton } from "@/components/Shared/Loader";
-import { RootState } from "@/redux/store";
 
 type DataType = {
   _id: string;
@@ -48,16 +46,13 @@ const column: ColumnDef<DataType>[] = [
 ];
 
 const Orders = () => {
-  const { user } = useSelector((state: RootState) => state.userReducer);
-  const userId = user?._id;
-  const { isLoading, data, isError, error } = useMyOrdersQuery(userId!);
+  const { isLoading, data, isError, error } = useMyOrdersQuery();
 
   const [rows, setRows] = useState<DataType[]>([]);
 
-  if (isError) {
-    const err = error as CustomError;
-    toast.error(err.data.message);
-  }
+  useEffect(() => {
+    if (isError) toast.error((error as CustomError).data?.message);
+  }, [isError, error]);
 
   useEffect(() => {
     if (data)
@@ -80,7 +75,7 @@ const Orders = () => {
               {i.status}
             </span>
           ),
-          action: <Link to={`/admin/transaction/${i._id}`}>Manage</Link>,
+          action: <Link to={`/order/${i._id}`}>View</Link>,
         }))
       );
   }, [data]);

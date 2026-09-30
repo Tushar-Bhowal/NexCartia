@@ -1,6 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import AdminSidebar from "@/components/Shared/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
+import {
+  useAllCouponsQuery,
+  useDeleteCouponMutation,
+  useNewCouponMutation,
+} from "@/redux/api/paymentApi";
+import { responseToast } from "@/utils/Features";
+import { FaTrash } from "react-icons/fa";
 
 const allLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const allNumbers = "1234567890";
@@ -15,6 +22,18 @@ const Coupon = () => {
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   const [coupon, setCoupon] = useState<string>("");
+  const [amount, setAmount] = useState<number>(100);
+
+  const { data: couponsData, isLoading: couponsLoading } = useAllCouponsQuery();
+  const [newCoupon, { isLoading: saving }] = useNewCouponMutation();
+  const [deleteCoupon] = useDeleteCouponMutation();
+
+  const saveHandler = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const res = await newCoupon({ coupon: coupon.trim(), amount });
+    responseToast(res, null, "");
+    if ("data" in res) setCoupon("");
+  };
 
   const copyText = async (coupon: string) => {
     await window.navigator.clipboard.writeText(coupon);
@@ -54,7 +73,7 @@ const Coupon = () => {
       </div>
       <main className="dashboard-app-container h-screen md:col-span-5 g-clip-border rounded-xl bg-white shadow-md p-5 overflow-y-auto">
         <h1 className="text-md md:text-3xl font-bold mt-10 ml-8">Coupon</h1>
-        <section className="flex flex-col justify-center items-center gap-2 h-full">
+        <section className="flex flex-col justify-center items-center gap-2 py-8">
           <form className="coupon-form" onSubmit={submitHandler}>
             <input
               type="text"
@@ -104,12 +123,70 @@ const Coupon = () => {
             <div className="coupon-container">
               <code className="coupon-code">
                 {coupon}{" "}
-                <span onClick={() => copyText(coupon)}>
+                <button type="button" onClick={() => copyText(coupon)}>
                   {isCopied ? "Copied" : "Copy"}
-                </span>{" "}
+                </button>{" "}
               </code>
             </div>
           )}
+
+          <form
+            onSubmit={saveHandler}
+            className="mt-6 flex w-full max-w-md flex-col gap-3"
+          >
+            <h2 className="text-lg font-semibold">Save coupon</h2>
+            <input
+              type="text"
+              required
+              placeholder="Coupon code (generate one or type your own)"
+              value={coupon}
+              onChange={(e) => setCoupon(e.target.value)}
+              className="rounded-md border border-gray-300 p-2"
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              Discount (₹)
+              <input
+                type="number"
+                required
+                min={1}
+                step={1}
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="flex-1 rounded-md border border-gray-300 p-2"
+              />
+            </label>
+            <Button disabled={saving}>{saving ? "Saving..." : "Save Coupon"}</Button>
+          </form>
+
+          <div className="mt-8 w-full max-w-md">
+            <h2 className="mb-3 text-lg font-semibold">Active coupons</h2>
+            {couponsLoading ? (
+              <p className="text-sm text-gray-500">Loading...</p>
+            ) : couponsData?.coupons.length ? (
+              <ul className="divide-y divide-gray-200 rounded-md border border-gray-200">
+                {couponsData.coupons.map((c) => (
+                  <li
+                    key={c._id}
+                    className="flex items-center justify-between gap-4 p-3"
+                  >
+                    <code className="break-all">{c.code}</code>
+                    <span className="text-sm text-gray-700">₹{c.amount} off</span>
+                    <button
+                      type="button"
+                      aria-label={`Delete coupon ${c.code}`}
+                      onClick={async () =>
+                        responseToast(await deleteCoupon(c._id), null, "")
+                      }
+                    >
+                      <FaTrash />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">No coupons yet.</p>
+            )}
+          </div>
         </section>
       </main>
     </div>

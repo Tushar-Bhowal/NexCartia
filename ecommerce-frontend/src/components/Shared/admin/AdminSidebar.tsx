@@ -9,6 +9,7 @@ import {
   FaStopwatch,
 } from "react-icons/fa";
 import { HiMenuAlt4 } from "react-icons/hi";
+import { MdMail } from "react-icons/md";
 import logo from "../../../assets/logo.png";
 import { IoIosPeople } from "react-icons/io";
 import {
@@ -103,6 +104,12 @@ const DivOne = ({ location }: { location: Location }) => (
         url="/admin/transaction"
         text="Transaction"
         Icon={AiFillFileText}
+        location={location}
+      />
+      <Li
+        url="/admin/messages"
+        text="Messages"
+        Icon={MdMail}
         location={location}
       />
     </ul>

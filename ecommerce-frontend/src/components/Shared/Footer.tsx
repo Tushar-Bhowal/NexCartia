@@ -1,6 +1,6 @@
 import logo from "../../assets/logo.png";
 import { Link, useLocation } from "react-router-dom";
-import { FaFacebook, FaDiscord, FaTwitter, FaGithub } from "react-icons/fa";
+import { FaGithub } from "react-icons/fa";
 const Footer = () => {
   const location = useLocation();
   // Hidden on admin and the auth page (login is a self-contained, full-height screen).
@@ -48,13 +48,16 @@ const Footer = () => {
                 <div>
                   <h4 className="font-bold text-white mb-4">CATEGORIES</h4>
                   <ul className="space-y-2">
-                    {["Men", "Women"].map((item) => (
-                      <li key={item}>
+                    {[
+                      { label: "Men", to: "/gender/male" },
+                      { label: "Women", to: "/gender/female" },
+                    ].map((item) => (
+                      <li key={item.label}>
                         <Link
-                          to={`/category/${item.toLowerCase()}`}
+                          to={item.to}
                           className="text-gray-400 hover:text-gray-200"
                         >
-                          {item}
+                          {item.label}
                         </Link>
                       </li>
                     ))}
@@ -63,18 +66,14 @@ const Footer = () => {
 
                 <div>
                   <div className="flex">
-                    <Link to="/facebook">
-                      <FaFacebook className="w-6 h-6 text-white hover:text-green-150 ms-5" />
-                    </Link>
-                    <Link to="/discord">
-                      <FaDiscord className="w-6 h-6 text-white hover:text-green-150 ms-5" />
-                    </Link>
-                    <Link to="/twitter">
-                      <FaTwitter className="w-6 h-6 text-white hover:text-green-150 ms-5" />
-                    </Link>
-                    <Link to="/github">
+                    <a
+                      href="https://github.com/Tushar-Bhowal/mern-ecommerce-2025"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="GitHub repository"
+                    >
                       <FaGithub className="w-6 h-6 text-white hover:text-green-150 ms-5" />
-                    </Link>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -91,39 +90,3 @@ const Footer = () => {
 };
 
 export default Footer;
-{
-  /* <footer className=" bg-black-150">
-      <div className="mx-auto w-full max-w-screen-xl p-4 py-6 lg:py-8">
-        <div className="md:flex md:justify-between">
-          <div className="mb-6 md:mb-0">
-            <Link to={"/"} className="flex items-center">
-              <img src={logo} className="h-8 me-3" alt="FlowBite Logo" />
-            </Link>
-          </div>
-
-          <ul className="flex flex-wrap items-center mb-6 text-sm font-medium sm:mb-0 ">
-            <li>
-              <Link to="/about" className="me-4 md:me-6 text-green-150 text-lg">
-                Home
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/privacy-policy"
-                className="me-4 md:me-6 text-green-150 text-lg"
-              >
-                About
-              </Link>
-            </li>
-            <li>
-              <Link to="/contact" className="text-green-150 text-lg">
-                Contact
-              </Link>
-            </li>
-          </ul>
-        </div>
-        <hr className="my-6 border-gray-200 sm:mx-auto dark:border-gray-700 lg:my-8" />
-      
-      </div>
-    </footer> */
-}

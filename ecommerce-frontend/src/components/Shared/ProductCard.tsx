@@ -2,6 +2,7 @@
 import { CartItem } from "@/types/types";
 import { BsCart3 } from "react-icons/bs";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 type ProductsProps = {
   productId: string;
   photos: {
@@ -55,9 +56,11 @@ const ProductCard = ({
       </div>
       <div className="mt-4 flex justify-between items-center">
         <div>
-          <h3 className="text-sm text-gray-700">
-            <span aria-hidden="true" className="absolute inset-0" />
-            <p className="text-base font-semibold text-gray-900">{name}</p>
+          <h3 className="text-base font-semibold text-gray-900">
+            <Link to={`/product/${productId}`}>
+              <span aria-hidden="true" className="absolute inset-0" />
+              {name}
+            </Link>
           </h3>
         </div>
         <p className="text-sm font-medium text-gray-900">₹{price}</p>
