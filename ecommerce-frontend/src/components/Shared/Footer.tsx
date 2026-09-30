@@ -49,8 +49,8 @@ const Footer = () => {
                   <h4 className="font-bold text-white mb-4">CATEGORIES</h4>
                   <ul className="space-y-2">
                     {[
-                      { label: "Men", to: "/gender/male" },
-                      { label: "Women", to: "/gender/female" },
+                      { label: "Men", to: "/search?gender=male" },
+                      { label: "Women", to: "/search?gender=female" },
                     ].map((item) => (
                       <li key={item.label}>
                         <Link

@@ -7,7 +7,10 @@ export const CART_STORAGE_KEY = "cartItems";
 const loadCartItems = (): CartItem[] => {
   try {
     const saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "[]");
-    return Array.isArray(saved) ? saved : [];
+    // carts saved before sizes existed have no size field
+    return Array.isArray(saved)
+      ? saved.map((item: CartItem) => ({ ...item, size: item.size ?? "" }))
+      : [];
   } catch {
     return [];
   }
@@ -44,7 +47,9 @@ export const cartReducer = createSlice({
       state.loading = true;
 
       const index = state.cartItems.findIndex(
-        (i) => i.productId === action.payload.productId
+        (i) =>
+          i.productId === action.payload.productId &&
+          i.size === action.payload.size
       );
 
       if (index !== -1) state.cartItems[index] = action.payload;
@@ -52,10 +57,14 @@ export const cartReducer = createSlice({
       state.loading = false;
     },
 
-    removeCartItem: (state, action: PayloadAction<string>) => {
+    removeCartItem: (
+      state,
+      action: PayloadAction<{ productId: string; size: string }>
+    ) => {
       state.loading = true;
       state.cartItems = state.cartItems.filter(
-        (i) => i.productId !== action.payload
+        (i) =>
+          !(i.productId === action.payload.productId && i.size === action.payload.size)
       );
       state.loading = false;
     },

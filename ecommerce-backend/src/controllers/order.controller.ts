@@ -132,6 +132,7 @@ export const newOrder = TryCatch(
       const product = products.find((p) => String(p._id) === item.productId);
       return {
         productId: item.productId,
+        size: item.size || undefined,
         quantity: item.quantity,
         name: product?.name ?? "Unavailable product",
         photo: product?.photos[0]?.url ?? "",
@@ -166,7 +167,7 @@ export const newOrder = TryCatch(
       order: true,
       admin: true,
       userId: req.userId,
-      productId: items.map((i) => i.productId),
+      productId: [...new Set(items.map((i) => i.productId))],
     });
 
     return res.status(201).json({

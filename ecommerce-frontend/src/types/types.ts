@@ -21,7 +21,37 @@ export type Product = {
     url: string;
     public_id: string;
   }[];
+  description?: string;
+  material?: string;
+  sizes?: string[];
+  fit?: string;
+  color?: string;
+  ratings?: number;
+  numOfReviews?: number;
+  createdAt?: string;
   _id: string;
+};
+
+export type Review = {
+  _id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  // null when the reviewer's account was deleted
+  user: { _id: string; name: string; photo?: string } | null;
+};
+
+export type FacetOption = { value: string; count: number };
+
+export type Facets = {
+  categories: FacetOption[];
+  genders: FacetOption[];
+  sizes: FacetOption[];
+  fits: FacetOption[];
+  colors: FacetOption[];
+  price: { min: number; max: number };
+  ratings: { value: number; count: number }[];
+  inStock: number;
 };
 
 export type ShippingInfo = {
@@ -34,6 +64,8 @@ export type ShippingInfo = {
 
 export type CartItem = {
   productId: string;
+  // "" for products that don't come in sizes
+  size: string;
   photo: string;
   name: string;
   price: number;

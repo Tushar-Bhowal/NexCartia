@@ -11,6 +11,8 @@ import {
   generateTokenAndSetCookie,
 } from "../utils/generateTokenAndSetCookie.js";
 import { verifyFirebaseToken } from "../utils/verifyFirebaseToken.js";
+import { Review } from "../models/review.model.js";
+import { invalidateCache, updateProductRating } from "../utils/features.js";
 
 const toSafeUser = (user: InstanceType<typeof User>) => {
   const { password, ...safeUser } = user.toObject();
@@ -161,7 +163,17 @@ export const deleteUser = TryCatch(async (req, res, next) => {
 
   const user = await User.findById(id);
   if (!user) return next(new ErrorHandler("Invalid Id", 400));
+
+  // Reviews go first so a failure can't leave orphaned reviews behind a deleted user
+  const reviewedProducts = await Review.distinct("product", { user: user._id });
+  await Review.deleteMany({ user: user._id });
   await user.deleteOne();
+
+  if (reviewedProducts.length) {
+    await Promise.all(reviewedProducts.map((p) => updateProductRating(String(p))));
+    invalidateCache({ product: true, productId: reviewedProducts.map(String) });
+  }
+
   return res.status(200).json({
     success: true,
     message: "User deleted Successfully",

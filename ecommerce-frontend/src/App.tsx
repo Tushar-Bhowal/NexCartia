@@ -1,4 +1,10 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useParams,
+} from "react-router-dom";
 import { lazy, Suspense, useEffect } from "react";
 import Loader from "./components/Shared/Loader";
 import Header from "./components/Shared/Header";
@@ -22,7 +28,6 @@ const Payment = lazy(() => import("./pages/Payment"));
 const Login = lazy(() => import("./pages/Login"));
 const Orders = lazy(() => import("./pages/Orders"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const CategoryProducts = lazy(() => import("./pages/CategoryProducts"));
 const ProductDetails = lazy(() => import("./pages/ProductDetails"));
 const OrderDetails = lazy(() => import("./pages/OrderDetails"));
 const PaymentSuccessful = lazy(() => import("./pages/PaymentSuccessful"));
@@ -51,6 +56,12 @@ const PieCharts = lazy(() => import("./pages/admin/charts/PieCharts"));
 const Coupon = lazy(() => import("./pages/admin/apps/Coupon"));
 const Stopwatch = lazy(() => import("./pages/admin/apps/Stopwatch"));
 const Toss = lazy(() => import("./pages/admin/apps/Toss"));
+
+// Old /category/:category and /gender/:gender links now open the filtered search page
+const ListingRedirect = ({ param }: { param: "category" | "gender" }) => {
+  const value = useParams()[param] ?? "";
+  return <Navigate replace to={`/search?${param}=${encodeURIComponent(value)}`} />;
+};
 
 const App = () => {
   const { user, loading } = useSelector(
@@ -82,8 +93,8 @@ const App = () => {
           <Route path="/contact" element={<Contact />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/product/:id" element={<ProductDetails />} />
-          <Route path="/category/:category" element={<CategoryProducts />} />
-          <Route path="/gender/:gender" element={<CategoryProducts />} />
+          <Route path="/category/:category" element={<ListingRedirect param="category" />} />
+          <Route path="/gender/:gender" element={<ListingRedirect param="gender" />} />
           {/* Not logged In Route */}
           <Route
             path="/login"

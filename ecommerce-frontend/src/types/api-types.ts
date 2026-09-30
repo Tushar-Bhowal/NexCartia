@@ -1,6 +1,8 @@
 import {
   Bar,
   CouponType,
+  Facets,
+  Review,
   Line,
   Order,
   Pie,
@@ -43,19 +45,28 @@ export type CategoriesResponse = {
 };
 
 export type SearchProductsResponse = AllProductsResponse & {
+  total: number;
+  page: number;
   totalPage: number;
 };
-export type SearchProductsRequest = {
-  price: number;
-  page: number;
-  category: string;
-  search: string;
-  sort: string;
+
+export type FacetsResponse = {
+  success: boolean;
+  facets: Facets;
 };
-export type FilterProductsRequest = {
-  page: number;
-  gender: string;
-  category: string;
+
+export type ReviewsResponse = {
+  success: boolean;
+  reviews: Review[];
+  distribution: Record<string, number>;
+  myReview: Review | null;
+  canReview: boolean;
+};
+
+export type ReviewRequest = {
+  productId: string;
+  rating: number;
+  comment: string;
 };
 export type ProductResponse = {
   success: boolean;
@@ -112,6 +123,7 @@ export type GoogleLoginRequest = {
 
 export type CartLine = {
   productId: string;
+  size?: string;
   quantity: number;
 };
 

@@ -42,3 +42,11 @@ export const LineSkeleton = () => {
     </div>
   );
 };
+export const ProductCardSkeleton = () => (
+  <div className="animate-pulse" aria-hidden="true">
+    <div className="aspect-3/4 rounded-2xl bg-stone-200" />
+    <div className="mt-3 h-3 w-1/3 rounded bg-stone-200" />
+    <div className="mt-2 h-4 w-3/4 rounded bg-stone-200" />
+    <div className="mt-2 h-3 w-1/2 rounded bg-stone-200" />
+  </div>
+);

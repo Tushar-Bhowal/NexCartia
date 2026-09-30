@@ -6,7 +6,7 @@ type CartItemProps = {
   cartItem: CartItem;
   incrementHandler: (cartItem: CartItem) => void;
   decrementHandler: (cartItem: CartItem) => void;
-  removeHandler: (id: string) => void;
+  removeHandler: (cartItem: CartItem) => void;
 };
 
 const CartItemCard = ({
@@ -15,13 +15,13 @@ const CartItemCard = ({
   decrementHandler,
   removeHandler,
 }: CartItemProps) => {
-  const { photo, productId, name, price, quantity } = cartItem;
+  const { photo, productId, name, price, quantity, size } = cartItem;
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:p-6">
       <div className="space-y-4 md:flex md:items-center md:justify-between md:gap-6 md:space-y-0">
         <Link to={`/product/${productId}`}>
-          <img className="h-20 w-20 rounded-md" src={photo} alt="Product image" />
+          <img className="h-20 w-20 rounded-md object-cover" src={photo} alt={name} />
         </Link>
 
         <label htmlFor="counter-input" className="sr-only">
@@ -29,11 +29,11 @@ const CartItemCard = ({
         </label>
         <div className="flex items-center justify-between md:order-3 md:justify-end">
           <div className="flex items-center">
-            <button onClick={() => decrementHandler(cartItem)}>-</button>
+            <button aria-label={`Decrease quantity of ${name}`} onClick={() => decrementHandler(cartItem)}>-</button>
             <p className="w-5 mx-2 shrink-0 border-0 bg-gray-100 rounded-sm text-center text-sm font-medium text-gray-900 focus:outline-none focus:ring-0">
               {quantity}
             </p>
-            <button onClick={() => incrementHandler(cartItem)}>+</button>
+            <button aria-label={`Increase quantity of ${name}`} onClick={() => incrementHandler(cartItem)}>+</button>
           </div>
           <div className="text-end md:order-4 md:w-32">
             <p className="text-base font-bold text-gray-900">₹{price}</p>
@@ -47,9 +47,10 @@ const CartItemCard = ({
           >
             {name}
           </Link>
+          {size && <p className="text-sm text-gray-500">Size: {size}</p>}
           <div className="">
             <button
-              onClick={() => removeHandler(productId)}
+              onClick={() => removeHandler(cartItem)}
               className="inline-flex items-center text-sm font-medium text-red-600 hover:underline"
             >
               Remove

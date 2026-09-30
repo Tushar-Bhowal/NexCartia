@@ -68,8 +68,9 @@ const CheckOutForm = () => {
 
       const res = await newOrder({
         paymentIntentId,
-        items: cartItems.map(({ productId, quantity }) => ({
+        items: cartItems.map(({ productId, size, quantity }) => ({
           productId,
+          ...(size && { size }),
           quantity,
         })),
         coupon,

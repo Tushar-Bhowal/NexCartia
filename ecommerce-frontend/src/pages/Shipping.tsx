@@ -39,8 +39,9 @@ const AddressForm: React.FC = () => {
 
     try {
       const data = await createPayment({
-        items: cartItems.map(({ productId, quantity }) => ({
+        items: cartItems.map(({ productId, size, quantity }) => ({
           productId,
+          ...(size && { size }),
           quantity,
         })),
         shippingInfo,

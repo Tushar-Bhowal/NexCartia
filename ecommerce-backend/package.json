@@ -8,7 +8,9 @@
     "start": "node dist/app.js",
     "build": "tsc",
     "watch": "tsc -w",
-    "dev": "nodemon dist/app.js"
+    "dev": "nodemon dist/app.js",
+    "seed": "node dist/scripts/seed.js",
+    "seed:clear": "node dist/scripts/seed.js --clear"
   },
   "author": "Tushar",
   "license": "ISC",

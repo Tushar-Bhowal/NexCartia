@@ -63,6 +63,11 @@ const OrderDetails = () => {
                 className="flex-1 font-medium text-gray-900 hover:underline"
               >
                 {item.name}
+                {item.size && (
+                  <span className="block text-sm font-normal text-gray-500">
+                    Size: {item.size}
+                  </span>
+                )}
               </Link>
               <span className="text-sm text-gray-700">
                 ₹{item.price} × {item.quantity} = ₹{item.price * item.quantity}

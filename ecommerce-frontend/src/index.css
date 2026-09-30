@@ -428,3 +428,41 @@
 .carousel-image {
   transition: opacity 1s ease-in-out; /* Increase the transition duration to 1 second */
 }
+
+/* Two stacked native range inputs make a dual-handle slider; only the thumbs take pointer events */
+.dual-range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+.dual-range::-webkit-slider-thumb {
+  appearance: none;
+  pointer-events: auto;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #1c1917;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  cursor: grab;
+}
+.dual-range::-moz-range-thumb {
+  pointer-events: auto;
+  height: 14px;
+  width: 14px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #1c1917;
+  cursor: grab;
+}
+.dual-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid #56b280;
+  outline-offset: 2px;
+}
+.dual-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid #56b280;
+  outline-offset: 2px;
+}

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { COLORS, FITS, SIZES } from "../utils/catalog.js";
 
 const productSchema = new mongoose.Schema(
   {
@@ -27,6 +28,14 @@ const productSchema = new mongoose.Schema(
       required: [true, "Please Enter Product Category"],
       trim: true,
     },
+    description: { type: String, trim: true, maxlength: 2000, default: "" },
+    material: { type: String, trim: true, maxlength: 200, default: "" },
+    sizes: { type: [{ type: String, enum: SIZES }], default: [] },
+    fit: { type: String, enum: FITS },
+    color: { type: String, enum: COLORS },
+    // denormalised from reviews so search can filter and sort on them
+    ratings: { type: Number, default: 0, min: 0, max: 5 },
+    numOfReviews: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

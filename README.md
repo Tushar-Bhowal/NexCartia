@@ -78,23 +78,37 @@ flowchart TD
 
 Stage-by-stage data hand-off:
 1. **Cart → Shipping:** cart items + address held in `cartReducer` (client state).
-2. **Shipping → payment/create:** sends `{ items: [{ productId, quantity }], shippingInfo, coupon }` (logged-in cookie required; `country` is an ISO code like `IN`). Backend checks stock, recomputes `subtotal`, `tax = round(subtotal*0.18)`, `shipping = subtotal>1000 ? 0 : 200`, subtracts the coupon amount, and creates an INR card PaymentIntent whose metadata holds the user id, the totals and a fingerprint of the cart. Returns `clientSecret`. **Totals are never trusted from the client.**
+2. **Shipping → payment/create:** sends `{ items: [{ productId, size?, quantity }], shippingInfo, coupon }` (logged-in cookie required; `country` is an ISO code like `IN`). A line is one product in one size; the size must be one the product comes in (none for sizeless items). Backend checks stock, which is shared across all sizes of a product, recomputes `subtotal`, `tax = round(subtotal*0.18)`, `shipping = subtotal>1000 ? 0 : 200`, subtracts the coupon amount, and creates an INR card PaymentIntent whose metadata holds the user id, the totals and a fingerprint of the cart. Returns `clientSecret`. **Totals are never trusted from the client.**
 3. **Payment:** the client confirms the PaymentIntent with Stripe.js using `clientSecret`.
 4. **order/new:** sends `{ paymentIntentId, items, coupon }`. The server retrieves the intent from Stripe and requires that it succeeded, belongs to the caller and matches the cart fingerprint; it then persists the `Order` with the totals from the intent (a retry with the same intent returns the existing order), `reduceStock` decrements stock (never below 0), and `invalidateCache` clears product + order + admin keys. The client lands on `/payment/success`.
 5. **Refetch:** the next RTK Query read (orders list, dashboard charts) misses the now-empty cache and repopulates from Mongo.
 
 ## Features
 
-### Product catalog with server-side caching
+### Product catalog, search & filters
 
-Lists latest products, all categories, and a paginated/filterable catalog, serving each from `myCache` when warm and from Mongo otherwise. Read endpoints are pure; freshness is maintained exclusively by `invalidateCache` on writes.
+Products carry clothing attributes (sizes, fit, colour, material, description) and a rating average kept in sync with customer reviews. The shop page (`/search`) searches and filters the whole catalog; every filter lives in the URL, so a filtered view can be shared or bookmarked.
 
-- **Mechanism:** `product.controller.ts` checks `myCache.has(key)` → returns parsed JSON, else queries `Product`, stores `JSON.stringify(...)`, responds. `getlatestProducts` sorts `createdAt: -1` limit 5; `getAllCategories` uses `Product.distinct("category")`. Pagination limit is `Number(process.env.PRODUCT_PER_PAGE) || 8`.
-- **Inputs/outputs:** `GET /api/v1/product/latest|categories|all|filter` → `{ success, products|categories }`. Frontend consumes via `productAPI` (`useLatestProductsQuery`, `useCategoriesQuery`, `useSearchProductsQuery`, `useProductsFilterQuery`).
+- **Attributes:** `sizes` from a fixed list (XS–XXL, waist 28–38, UK 3–11), `fit` ∈ slim/regular/relaxed/oversized, one `color` from a 12-colour palette. The lists live in `ecommerce-backend/src/utils/catalog.ts` and are mirrored in `ecommerce-frontend/src/lib/catalog.ts`; keep both in sync.
+- **Search:** `GET /api/v1/product/all` accepts `search` (name/description/category, regex-escaped), comma-separated `category`, `gender`, `size`, `fit`, `color`, plus `minPrice`, `maxPrice`, `rating` (minimum average), `inStock=true`, `sort` (`newest` | `price-asc` | `price-desc` | `rating` | `popular`) and `page` (`PRODUCT_PER_PAGE` per page) → `{ success, products, total, page, totalPage }`. Unknown values are ignored. Built in `utils/productSearch.ts`.
+- **Facets:** `GET /api/v1/product/facets` (same filters) → option counts for each filter, the price range and in-stock count. Each facet ignores its own filter, so ticking one colour doesn't zero out the others.
+- **Cached reads:** `latest`, `categories`, `admin-products` and single products are served from `myCache` and cleared by `invalidateCache` on writes; search and facets always hit Mongo.
 - **Example:**
   ```bash
-  curl "$SERVER/api/v1/product/all?search=shirt&page=1&sort=asc&category=men"
+  curl "$SERVER/api/v1/product/all?gender=female&size=M,L&color=black&minPrice=1000&sort=price-asc"
   ```
+
+### Reviews & ratings
+
+Customers who have ordered a product can rate it 1–5 stars with an optional comment (one review each, editable). The product's `ratings` and `numOfReviews` are recomputed on every change and power the rating filter and "Top rated" sort.
+
+- `GET /api/v1/product/:id/reviews` → latest reviews, a 5→1 star distribution, and (when logged in) `myReview` / `canReview`.
+- `POST /api/v1/product/:id/review` (logged in, must have ordered it) body `{ rating, comment? }`; `DELETE /api/v1/product/review/:reviewId` (author or admin).
+- Deleting a product deletes its reviews; deleting a user removes their reviews and recalculates the affected products.
+
+### Sample catalog (seed data)
+
+`npm run seed` (in `ecommerce-backend/`, after `npm run build`) adds 24 products across jeans, t-shirts, shirts, footwear, jackets and dresses with free-licence Unsplash photos, plus 6 demo reviewers and their reviews, so every filter has data. It writes to the database in `MONGO_URI` and refuses to run twice. `npm run seed:clear` removes exactly what it added (products whose photo ids start with `seed/`, users `@seed.nexcartia.dev`, and their reviews); real products and customers are never touched.
 
 ### Admin product management (Multer → Cloudinary)
 

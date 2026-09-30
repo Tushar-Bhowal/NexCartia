@@ -48,19 +48,34 @@ export const createPaymentIntent = TryCatch(
       discountAmount = discount.amount;
     }
 
-    const products = await Product.find({
-      _id: { $in: items.map((item) => item.productId) },
-    });
+    const productIds = [...new Set(items.map((item) => item.productId))];
+    const products = await Product.find({ _id: { $in: productIds } });
 
-    if (products.length !== items.length)
+    if (products.length !== productIds.length)
       return next(
         new ErrorHandler("Some products in your cart are no longer available", 400)
       );
 
     let subtotal = 0;
     for (const product of products) {
-      const item = items.find((i) => i.productId === String(product._id))!;
-      if (item.quantity > product.stock)
+      // stock is shared across sizes, so check the total quantity per product
+      const lines = items.filter((i) => i.productId === String(product._id));
+      const quantity = lines.reduce((sum, i) => sum + i.quantity, 0);
+
+      for (const line of lines) {
+        const size = line.size ?? "";
+        if (product.sizes.length ? !product.sizes.includes(size) : size !== "")
+          return next(
+            new ErrorHandler(
+              product.sizes.length
+                ? `Please choose an available size for ${product.name}`
+                : `${product.name} doesn't come in sizes`,
+              400
+            )
+          );
+      }
+
+      if (quantity > product.stock)
         return next(
           new ErrorHandler(
             product.stock > 0
@@ -69,7 +84,7 @@ export const createPaymentIntent = TryCatch(
             400
           )
         );
-      subtotal += product.price * item.quantity;
+      subtotal += product.price * quantity;
     }
 
     const totals = calculateOrderTotals(subtotal, discountAmount);

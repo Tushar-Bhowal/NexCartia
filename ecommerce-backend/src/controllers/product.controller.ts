@@ -1,11 +1,14 @@
 import { Request } from "express";
 import { TryCatch } from "../middlewares/error.js";
-import {
-  BaseQuery,
-  NewProductRequestBody,
-  SearchRequestQuery,
-} from "../types/types.js";
+import { NewProductRequestBody } from "../types/types.js";
 import { Product } from "../models/product.model.js";
+import { Review } from "../models/review.model.js";
+import { COLORS, FITS, SIZES } from "../utils/catalog.js";
+import {
+  facetPipeline,
+  parseProductQuery,
+  shapeFacets,
+} from "../utils/productSearch.js";
 import ErrorHandler from "../utils/utility-class.js";
 import { myCache } from "../app.js";
 import {
@@ -19,8 +22,6 @@ interface PhotoInterface {
   url: string;
 }
 
-const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 const validateProductNumbers = (price: unknown, stock: unknown) => {
   if (price !== undefined && !(Number(price) > 0))
     return "Price must be greater than 0";
@@ -33,6 +34,47 @@ const validateProductNumbers = (price: unknown, stock: unknown) => {
 };
 
 const isGender = (gender: unknown) => gender === "male" || gender === "female";
+
+// Only fields present in the body are returned, so an update leaves the rest untouched.
+// An empty fit/colour clears it.
+const readCatalogFields = (body: Partial<NewProductRequestBody>) => {
+  const fields: Record<string, unknown> = {};
+
+  if (body.description !== undefined) {
+    fields.description = String(body.description).trim();
+    if ((fields.description as string).length > 2000)
+      return { fields, error: "Description can be at most 2000 characters" };
+  }
+  if (body.material !== undefined) {
+    fields.material = String(body.material).trim();
+    if ((fields.material as string).length > 200)
+      return { fields, error: "Material can be at most 200 characters" };
+  }
+  if (body.sizes !== undefined) {
+    const sizes = [
+      ...new Set(
+        String(body.sizes)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
+    ];
+    const unknown = sizes.find((s) => !SIZES.includes(s));
+    if (unknown) return { fields, error: `Unknown size "${unknown}"` };
+    fields.sizes = sizes;
+  }
+  if (body.fit !== undefined) {
+    if (body.fit && !FITS.includes(body.fit)) return { fields, error: "Please select a valid fit" };
+    fields.fit = body.fit || undefined;
+  }
+  if (body.color !== undefined) {
+    if (body.color && !COLORS.includes(body.color))
+      return { fields, error: "Please select a valid colour" };
+    fields.color = body.color || undefined;
+  }
+
+  return { fields };
+};
 
 // Revalidate on New,Update,Delete Product & on New Order
 export const getlatestProducts = TryCatch(async (req, res, next) => {
@@ -121,9 +163,13 @@ export const newProduct = TryCatch(
     if (!isGender(gender))
       return next(new ErrorHandler("Please select a valid gender", 400));
 
+    const catalog = readCatalogFields(req.body);
+    if (catalog.error) return next(new ErrorHandler(catalog.error, 400));
+
     const photosURL = await uploadToCloudinary(photos);
 
     await Product.create({
+      ...catalog.fields,
       name,
       price: Number(price),
       gender,
@@ -159,6 +205,9 @@ export const updateProduct = TryCatch(async (req, res, next) => {
   if (gender && !isGender(gender))
     return next(new ErrorHandler("Please select a valid gender", 400));
 
+  const catalog = readCatalogFields(req.body);
+  if (catalog.error) return next(new ErrorHandler(catalog.error, 400));
+
   if (photos && photos.length > 0) {
     // Upload new photos
     const photosURL = await uploadToCloudinary(photos);
@@ -184,6 +233,7 @@ export const updateProduct = TryCatch(async (req, res, next) => {
   if (stock !== undefined && stock !== "") product.stock = Number(stock);
   if (category) product.category = category.trim().toLowerCase();
   if (gender) product.gender = gender;
+  product.set(catalog.fields);
 
   await product.save();
 
@@ -208,6 +258,7 @@ export const deleteProduct = TryCatch(async (req, res, next) => {
   await deleteFromCloudinary(ids);
 
   await product.deleteOne();
+  await Review.deleteMany({ product: product._id });
 
   invalidateCache({
     product: true,
@@ -221,97 +272,37 @@ export const deleteProduct = TryCatch(async (req, res, next) => {
   });
 });
 
-export const getAllProducts = TryCatch(
-  async (req: Request<{}, {}, {}, SearchRequestQuery>, res, next) => {
-    const { search, sort, category, price } = req.query;
+export const getAllProducts = TryCatch(async (req, res, next) => {
+  const { buildMatch, sort } = parseProductQuery(req.query);
 
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Number(process.env.PRODUCT_PER_PAGE) || 8;
-    const skip = (page - 1) * limit;
-
-    const baseQuery: BaseQuery = {};
-
-    if (typeof search === "string" && search)
-      baseQuery.name = {
-        $regex: escapeRegex(search),
-        $options: "i",
-      };
-
-    if (price && Number(price) > 0)
-      baseQuery.price = {
-        $lte: Number(price),
-      };
-
-    if (typeof category === "string" && category) baseQuery.category = category;
-
-    const productsPromise = Product.find(baseQuery)
-      .sort(sort && { price: sort === "asc" ? 1 : -1 })
-      .limit(limit)
-      .skip(skip);
-
-    const [products, filteredCount] = await Promise.all([
-      productsPromise,
-      Product.countDocuments(baseQuery),
-    ]);
-
-    const totalPage = Math.ceil(filteredCount / limit);
-
-    return res.status(200).json({
-      success: true,
-      products,
-      totalPage,
-    });
-  }
-);
-
-export const getProductsFilter = TryCatch(async (req, res, next) => {
-  const { gender, category } = req.query;
-
-  if (!gender && !category) {
-    return next(new ErrorHandler("Either gender or category is required", 400));
-  }
-
-  if ((gender && typeof gender !== "string") || (category && typeof category !== "string"))
-    return next(new ErrorHandler("Invalid filter value", 400));
-
-  const page = Math.max(1, Number(req.query.page) || 1);
+  const requested = Math.floor(Number(req.query.page));
+  const page = Number.isFinite(requested) ? Math.min(Math.max(1, requested), 10000) : 1;
   const limit = Number(process.env.PRODUCT_PER_PAGE) || 8;
-  const skip = (page - 1) * limit;
+  const match = buildMatch();
 
-  // Determine the filter type and value
-  const filterType = gender ? "gender" : "category";
-  const filterValue = (gender || category) as string;
-
-  const cacheKey = `products-${filterType}-${filterValue.toLowerCase()}-page-${page}`;
-
-  // Check if result is in cache
-  if (myCache.has(cacheKey)) {
-    const cachedResult = JSON.parse(myCache.get(cacheKey) as string);
-    return res.status(200).json(cachedResult);
-  }
-
-  // Construct base query
-  const baseQuery: BaseQuery = gender
-    ? { gender: filterValue.toLowerCase() as "male" | "female" }
-    : { category: filterValue.toLowerCase() };
-
-  const productsPromise = Product.find(baseQuery).limit(limit).skip(skip);
-
-  const [products, filteredCount] = await Promise.all([
-    productsPromise,
-    Product.countDocuments(baseQuery),
+  const [products, total] = await Promise.all([
+    Product.find(match)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit),
+    Product.countDocuments(match),
   ]);
 
-  const totalPage = Math.ceil(filteredCount / limit);
-
-  const result = {
+  return res.status(200).json({
     success: true,
     products,
-    totalPage,
-  };
+    total,
+    page,
+    totalPage: Math.ceil(total / limit),
+  });
+});
 
-  // Cache the result
-  myCache.set(cacheKey, JSON.stringify(result));
+export const getProductFacets = TryCatch(async (req, res, next) => {
+  const { buildMatch } = parseProductQuery(req.query);
+  const [raw] = await Product.aggregate(facetPipeline(buildMatch));
 
-  return res.status(200).json(result);
+  return res.status(200).json({
+    success: true,
+    facets: shapeFacets(raw),
+  });
 });

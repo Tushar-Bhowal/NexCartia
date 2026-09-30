@@ -87,6 +87,7 @@ const TransactionManagement = () => {
               name={item.name}
               photo={item.photo}
               productId={item.productId}
+              size={item.size}
               quantity={item.quantity}
               price={item.price}
             />
@@ -162,11 +163,15 @@ const ProductCard = ({
   price,
   quantity,
   productId,
+  size,
 }: Omit<OrderItem, "_id">) => (
   <div className="w-full transaction-product-card flex flex-row items-center justify-center p-1 gap-5">
     <img className="w-14 h-14 rounded-lg" src={photo} alt={name} />
     <div className="flex gap-12 ">
-      <Link to={`/product/${productId}`}>{name}</Link>
+      <Link to={`/product/${productId}`}>
+        {name}
+        {size && <span className="text-gray-500"> ({size})</span>}
+      </Link>
       <span>
         ₹{price} X {quantity} = ₹{price * quantity}
       </span>

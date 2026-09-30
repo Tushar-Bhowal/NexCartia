@@ -6,6 +6,8 @@ import { useNewProductMutation } from "@/redux/api/productApi";
 import { useNavigate } from "react-router-dom";
 import { responseToast } from "@/utils/Features";
 import { useFileHandler } from "6pp";
+import CatalogFields from "@/components/Shared/admin/CatalogFields";
+import { appendCatalog, emptyCatalog } from "@/lib/catalog";
 
 const NewProduct = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -14,6 +16,7 @@ const NewProduct = () => {
   const [price, setPrice] = useState<number>(1000);
   const [stock, setStock] = useState<number>(1);
   const [gender, setGender] = useState<string>("");
+  const [catalog, setCatalog] = useState(emptyCatalog);
 
   const [newProduct] = useNewProductMutation();
 
@@ -37,6 +40,7 @@ const NewProduct = () => {
       formData.set("stock", stock.toString());
       formData.set("category", category);
       formData.set("gender", gender);
+      appendCatalog(formData, catalog);
 
       photos.file.forEach((file) => {
         formData.append("photos", file);
@@ -144,6 +148,8 @@ const NewProduct = () => {
                     <option value="female">Female</option>
                   </select>
                 </div>
+
+                <CatalogFields values={catalog} onChange={setCatalog} />
 
                 {/* Photo Upload */}
                 <div>

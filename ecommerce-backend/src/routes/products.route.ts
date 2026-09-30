@@ -6,13 +6,19 @@ import {
   getAdminProducts,
   getAllCategories,
   getAllProducts,
-  getProductsFilter,
+  getProductFacets,
   getSingleProduct,
   getlatestProducts,
   newProduct,
   updateProduct,
 } from "../controllers/product.controller.js";
 import { mutliUpload } from "../middlewares/multer.js";
+import { verifyToken } from "../middlewares/verifytoken.js";
+import {
+  deleteReview,
+  getProductReviews,
+  upsertReview,
+} from "../controllers/review.controller.js";
 
 const app = express.Router();
 //To Create New Product  - /api/v1/product/new
@@ -27,11 +33,16 @@ app.get("/latest", getlatestProducts);
 //To get all unique Categories  - /api/v1/product/categories
 app.get("/categories", getAllCategories);
 
-//To get all gender filter products  - /api/v1/product/filter
-app.get("/filter", getProductsFilter);
+//Filter options with live counts for the search page  - /api/v1/product/facets
+app.get("/facets", getProductFacets);
 
 //To get all Products   - /api/v1/product/admin-products
 app.get("/admin-products", adminOnly, getAdminProducts);
+
+// Reviews - /api/v1/product/:id/reviews, /api/v1/product/review/:reviewId
+app.get("/:id/reviews", getProductReviews);
+app.post("/:id/review", verifyToken, upsertReview);
+app.delete("/review/:reviewId", verifyToken, deleteReview);
 
 // To get, update, delete Product
 app

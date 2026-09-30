@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { CartLineType, InvalidateCacheProps } from "../types/types.js";
 import { myCache } from "../app.js";
 import { Product } from "../models/product.model.js";
+import { Review } from "../models/review.model.js";
 import { UploadApiResponse,  v2 as cloudinary } from "cloudinary";
 
 export const connectDB = (uri: string) => {
@@ -33,9 +34,6 @@ export const invalidateCache = ({
 
     if (typeof productId === "object")
       productId.forEach((i) => productKeys.push(`product-${i}`));
-
-    // paginated gender/category listings from getProductsFilter
-    productKeys.push(...myCache.keys().filter((k) => k.startsWith("products-")));
 
     myCache.del(productKeys);
   }
@@ -88,7 +86,7 @@ export const calculateOrderTotals = (subtotal: number, discount: number) => {
 // order can't be placed for a different cart than the one that was charged.
 export const hashCart = (items: CartLineType[], coupon?: string) => {
   const lines = items
-    .map((i) => `${i.productId}:${i.quantity}`)
+    .map((i) => `${i.productId}:${i.size ?? ""}:${i.quantity}`)
     .sort()
     .join(",");
   return createHash("sha256").update(`${lines}|${coupon || ""}`).digest("hex");
@@ -97,14 +95,32 @@ export const hashCart = (items: CartLineType[], coupon?: string) => {
 export const isValidCart = (items: unknown): items is CartLineType[] =>
   Array.isArray(items) &&
   items.length > 0 &&
+  items.length <= 50 &&
   items.every(
     (i) =>
       typeof i?.productId === "string" &&
       mongoose.isValidObjectId(i.productId) &&
+      (i.size === undefined || (typeof i.size === "string" && i.size.length <= 10)) &&
       Number.isInteger(i.quantity) &&
       i.quantity > 0
   ) &&
-  new Set(items.map((i) => i.productId)).size === items.length;
+  // the same product may appear once per size
+  new Set(items.map((i) => `${i.productId}|${i.size ?? ""}`)).size === items.length;
+
+export const updateProductRating = async (productId: string) => {
+  const [stats] = await Review.aggregate([
+    { $match: { product: new mongoose.Types.ObjectId(productId) } },
+    { $group: { _id: null, avg: { $avg: "$rating" }, count: { $sum: 1 } } },
+  ]);
+
+  await Product.updateOne(
+    { _id: productId },
+    {
+      ratings: stats ? Math.round(stats.avg * 10) / 10 : 0,
+      numOfReviews: stats?.count ?? 0,
+    }
+  );
+};
 
 export const calculatePercentage = (thisMonth: number, lastMonth: number) => {
   if (lastMonth === 0) return thisMonth * 100;

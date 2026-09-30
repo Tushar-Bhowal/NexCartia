@@ -11,6 +11,8 @@ import {
 } from "@/redux/api/productApi";
 import { responseToast } from "@/utils/Features";
 import { useFileHandler } from "6pp";
+import CatalogFields from "@/components/Shared/admin/CatalogFields";
+import { appendCatalog, emptyCatalog } from "@/lib/catalog";
 
 const ProductManagement = () => {
   const params = useParams();
@@ -32,6 +34,7 @@ const ProductManagement = () => {
   const [nameUpdate, setNameUpdate] = useState<string>(name);
   const [categoryUpdate, setCategoryUpdate] = useState<string>(category);
   const [genderUpdate, setGenderUpdate] = useState<string>(gender);
+  const [catalog, setCatalog] = useState(emptyCatalog);
   const [updateProduct] = useUpdateProductMutation();
   const [deleteProduct] = useDeleteProductMutation();
 
@@ -50,6 +53,7 @@ const ProductManagement = () => {
 
       if (categoryUpdate) formData.set("category", categoryUpdate);
       if (genderUpdate) formData.set("gender", genderUpdate);
+      appendCatalog(formData, catalog);
       if (photosFiles.file && photosFiles.file.length > 0) {
         photosFiles.file.forEach((file) => {
           formData.append("photos", file);
@@ -84,6 +88,13 @@ const ProductManagement = () => {
       setStockUpdate(data.product.stock);
       setCategoryUpdate(data.product.category);
       setGenderUpdate(data.product.gender);
+      setCatalog({
+        description: data.product.description ?? "",
+        material: data.product.material ?? "",
+        sizes: data.product.sizes ?? [],
+        fit: data.product.fit ?? "",
+        color: data.product.color ?? "",
+      });
     }
   }, [data]);
   if (isError) return <Navigate to={"/404"} />;
@@ -115,7 +126,7 @@ const ProductManagement = () => {
         </section>
         <article
           style={{ height: "85vh" }}
-          className="w-full max-w-md p-8 flex flex-col relative rounded-xl bg-white text-gray-700 shadow-md"
+          className="w-full max-w-md p-8 flex flex-col relative rounded-xl bg-white text-gray-700 shadow-md overflow-y-auto"
         >
           <Button
             className="bg-black-text hover:bg-black-text/90 w-1/6"
@@ -187,6 +198,9 @@ const ProductManagement = () => {
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
+            </div>
+            <div className="mt-2 space-y-4">
+              <CatalogFields values={catalog} onChange={setCatalog} />
             </div>
             <div>
               <label className="block mt-2 mb-2 text-sm font-medium text-gray-900">

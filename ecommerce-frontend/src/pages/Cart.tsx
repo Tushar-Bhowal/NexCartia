@@ -33,7 +33,11 @@ const Cart = () => {
     useLazyDiscountQuery();
 
   const incrementHandler = (cartItem: CartItem) => {
-    if (cartItem.quantity >= cartItem.stock) return;
+    // stock is shared by every size of the product, so count all its lines
+    const inCart = cartItems
+      .filter((i) => i.productId === cartItem.productId)
+      .reduce((sum, i) => sum + i.quantity, 0);
+    if (inCart >= cartItem.stock) return;
 
     dispatch(addToCart({ ...cartItem, quantity: cartItem.quantity + 1 }));
   };
@@ -44,8 +48,10 @@ const Cart = () => {
     dispatch(addToCart({ ...cartItem, quantity: cartItem.quantity - 1 }));
   };
 
-  const removeHandler = (productId: string) => {
-    dispatch(removeCartItem(productId));
+  const removeHandler = (cartItem: CartItem) => {
+    dispatch(
+      removeCartItem({ productId: cartItem.productId, size: cartItem.size })
+    );
   };
 
   const applyCouponHandler = async (e: FormEvent<HTMLFormElement>) => {
@@ -124,7 +130,7 @@ const Cart = () => {
                     incrementHandler={incrementHandler}
                     decrementHandler={decrementHandler}
                     removeHandler={removeHandler}
-                    key={idx}
+                    key={`${i.productId}-${i.size}-${idx}`}
                     cartItem={i}
                   />
                 ))

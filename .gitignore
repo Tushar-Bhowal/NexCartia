@@ -4,6 +4,8 @@
 
 # Claude Code context files (kept local, not committed)
 CLAUDE.md
+.claude/plans/
+.claude/handoff.md
 
 # OS files
 .DS_Store

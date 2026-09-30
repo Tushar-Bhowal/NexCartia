@@ -5,10 +5,8 @@ import { WobbleCard } from "@/components/Shared/WobbleCard";
 import { Button } from "@/components/ui/button";
 import { useLatestProductsQuery } from "@/redux/api/productApi";
 import toast from "react-hot-toast";
-import { ProductSkeleton } from "@/components/Shared/Loader";
-import { CartItem } from "@/types/types";
-import { addToCart } from "@/redux/reducer/cartReducer";
-import { useDispatch } from "react-redux";
+import { ProductCardSkeleton } from "@/components/Shared/Loader";
+import { useAddToCart } from "@/hooks/useAddToCart";
 import { useEffect, useRef } from "react";
 import {
   motion,
@@ -33,14 +31,7 @@ const promises = [
 const Home = () => {
   const { data, isError, isLoading } = useLatestProductsQuery();
 
-  const dispatch = useDispatch();
-
-  const addToCartHandler = (cartItem: CartItem) => {
-    if (cartItem.stock < 1) return toast.error("Out of Stock");
-
-    dispatch(addToCart(cartItem));
-    toast.success("Added to cart");
-  };
+  const addToCart = useAddToCart();
 
   useEffect(() => {
     if (isError) toast.error("Cannot Fetch the Products");
@@ -97,7 +88,7 @@ const Home = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto w-full">
             <WobbleCard
               containerClassName="col-span-1 lg:col-span-2 h-full bg-pink-800 min-h-125 lg:min-h-[300px]"
-              navigateTo="/category/jeans"
+              navigateTo="/search?category=jeans"
             >
               <div className="max-w-xs">
                 <h2 className="text-left uppercase text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
@@ -117,7 +108,7 @@ const Home = () => {
 
             <WobbleCard
               containerClassName="col-span-1 min-h-[300px]"
-              navigateTo="/category/t-shirt"
+              navigateTo="/search?category=t-shirt"
             >
               <div className="max-w-xs">
                 <h2 className="text-left uppercase text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
@@ -137,7 +128,7 @@ const Home = () => {
 
             <WobbleCard
               containerClassName="col-span-1 min-h-[300px]"
-              navigateTo="/category/shirts"
+              navigateTo="/search?category=shirts"
             >
               <div className="max-w-xs">
                 <h2 className="text-left uppercase text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
@@ -157,7 +148,7 @@ const Home = () => {
 
             <WobbleCard
               containerClassName="col-span-1 lg:col-span-2 bg-green-700 min-h-125 lg:min-h-[600px] xl:min-h-[300px]"
-              navigateTo="/category/footwears"
+              navigateTo="/search?category=footwears"
             >
               <div className="max-w-sm">
                 <h2 className="max-w-sm md:max-w-lg  text-left text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
@@ -249,23 +240,23 @@ const Home = () => {
           </h1>
         </div>
         <div className="max-w-7xl mx-auto w-full">
-          <div className="mt-6 flex gap-6 flex-wrap">
-            {isLoading ? (
-              <ProductSkeleton />
-            ) : (
-              data?.products.map((i) => (
+          {isLoading ? (
+            <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-5">
+              {Array.from({ length: 5 }, (_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-5">
+              {data?.products.map((i) => (
                 <ProductCard
                   key={i._id}
-                  productId={i._id}
-                  name={i.name}
-                  price={i.price}
-                  stock={i.stock}
-                  handler={addToCartHandler}
-                  photos={i.photos}
+                  product={i}
+                  onQuickAdd={(product, size) => addToCart(product, size)}
                 />
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -384,7 +375,7 @@ const Home = () => {
             className="h-100 md:h-150"
           >
             <Link
-              to="/gender/female"
+              to="/search?gender=female"
               className="block relative overflow-hidden rounded-2xl w-full h-full group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-150 focus-visible:ring-offset-2"
             >
               <img
@@ -415,7 +406,7 @@ const Home = () => {
             className="h-100 md:h-150"
           >
             <Link
-              to="/gender/male"
+              to="/search?gender=male"
               className="block relative overflow-hidden rounded-2xl w-full h-full group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-150 focus-visible:ring-offset-2"
             >
               <img
