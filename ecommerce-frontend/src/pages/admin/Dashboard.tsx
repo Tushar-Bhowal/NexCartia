@@ -22,18 +22,10 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50/50 flex">
-      <div className="fixed top-0 left-0 h-full lg:w-[250px]">
-        {" "}
-        {/* Fixed sidebar */}
+      <div className="lg:w-64 flex-shrink-0">
         <AdminSidebar />
       </div>
-      <main
-        className="lg:ml-[250px] flex-1 overflow-y-auto"
-        style={{
-          height: "100vh",
-          width: "calc(100% - 250px)",
-        }}
-      >
+      <main className="flex-1 min-w-0 h-screen overflow-y-auto">
         {isLoading ? (
           <LineSkeleton />
         ) : (

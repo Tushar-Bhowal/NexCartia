@@ -88,12 +88,12 @@ const Transaction = () => {
   )();
 
   return (
-    <div className="h-screen xl:grid xl:grid-cols-6 bg-gray-50/50">
-      <div>
+    <div className="h-screen flex bg-gray-50/50">
+      <div className="lg:w-64 flex-shrink-0">
         <AdminSidebar />
       </div>
 
-      <div className="md:col-span-5 xl:col-span-5 flex flex-row overflow-y-auto m-4 p-4 bg-clip-border rounded-xl bg-white text-gray-700 shadow-md">
+      <div className="flex-1 min-w-0 flex flex-row overflow-y-auto m-4 p-4 bg-clip-border rounded-xl bg-white text-gray-700 shadow-md">
         <div className="w-full">
           {" "}
           {isLoading ? (

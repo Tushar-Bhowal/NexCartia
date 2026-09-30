@@ -88,12 +88,11 @@ const ProductManagement = () => {
   }, [data]);
   if (isError) return <Navigate to={"/404"} />;
   return (
-    <div className="admin-container h-screen bg-gray-50/50 overflow-y-auto">
-      <div>
-        {" "}
-        <AdminSidebar />{" "}
+    <div className="admin-container h-screen flex bg-gray-50/50 overflow-y-auto">
+      <div className="lg:w-64 flex-shrink-0">
+        <AdminSidebar />
       </div>
-      <main className="product-management flex flex-col sm:flex-row gap-4 justify-center items-center p-4 overflow-y-auto">
+      <main className="product-management flex-1 min-w-0 flex flex-col sm:flex-row gap-4 justify-center items-center p-4 overflow-y-auto">
         <section
           style={{ height: "85vh" }}
           className="w-full max-w-lg p-10 flex flex-col relative rounded-xl bg-white text-gray-700 shadow-md  overflow-y-auto"

@@ -105,11 +105,11 @@ const Messages = () => {
 
   return (
     <div className="min-h-screen bg-gray-50/50 flex">
-      <div className="fixed top-0 left-0 h-full lg:w-[250px]">
+      <div className="lg:w-64 flex-shrink-0">
         <AdminSidebar />
       </div>
 
-      <div className="lg:ml-[250px] flex-1 flex flex-col gap-6 overflow-y-auto m-4">
+      <div className="flex-1 min-w-0 flex flex-col gap-6 overflow-y-auto m-4">
         <div className="w-full p-4 bg-clip-border rounded-xl bg-white text-gray-700 shadow-md">
           {messages.isLoading ? <LineSkeleton /> : MessagesTable}
           {!messages.isLoading && messageRows.length === 0 && (

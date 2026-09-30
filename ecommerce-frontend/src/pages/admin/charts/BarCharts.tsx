@@ -21,12 +21,12 @@ const BarCharts = () => {
   }, [isError, error]);
   return (
     <div className="admin-container min-h-screen  bg-gray-50/50">
-      <div className="grid xl:grid-cols-6">
-        <div>
+      <div className="flex">
+        <div className="lg:w-64 flex-shrink-0">
           <AdminSidebar />
         </div>
 
-        <main className="chart-container col-span-4 md:col-span-5 overflow-y-auto bg-clip-border rounded-xl bg-white shadow-md p-10 md:p-16 m-4">
+        <main className="chart-container flex-1 min-w-0 overflow-y-auto bg-clip-border rounded-xl bg-white shadow-md p-10 md:p-16 m-4">
           <h1 className="text-md md:text-3xl font-bold">Bar Charts</h1>
           {isLoading ? (
             <LineSkeleton />

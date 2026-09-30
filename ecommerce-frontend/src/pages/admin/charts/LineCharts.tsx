@@ -20,15 +20,17 @@ const BarCharts = () => {
     if (isError) toast.error((error as CustomError).data?.message);
   }, [isError, error]);
   return (
-    <div className="admin-container xl:grid xl:grid-cols-6 min-h-screen bg-gray-50/50">
-      <div>
+    <div className="admin-container flex min-h-screen bg-gray-50/50">
+      <div className="lg:w-64 flex-shrink-0">
         <AdminSidebar />
       </div>
       {isLoading ? (
-        <LineSkeleton />
+        <div className="flex-1 min-w-0">
+          <LineSkeleton />
+        </div>
       ) : (
         <>
-          <main className="chart-container m-4 md:col-span-5 g-clip-border rounded-xl bg-white shadow-md p-5 overflow-y-auto">
+          <main className="chart-container m-4 flex-1 min-w-0 g-clip-border rounded-xl bg-white shadow-md p-5 overflow-y-auto">
             <h1 className="text-md md:text-3xl font-bold mt-10 ml-8">
               Line Charts
             </h1>

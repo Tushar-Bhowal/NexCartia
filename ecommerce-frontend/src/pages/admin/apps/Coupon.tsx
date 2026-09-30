@@ -67,11 +67,11 @@ const Coupon = () => {
   }, [coupon]);
 
   return (
-    <div className="admin-container h-screen xl:grid xl:grid-cols-6 bg-gray-50/50">
-      <div>
+    <div className="admin-container h-screen flex bg-gray-50/50">
+      <div className="lg:w-64 flex-shrink-0">
         <AdminSidebar />
       </div>
-      <main className="dashboard-app-container h-screen md:col-span-5 g-clip-border rounded-xl bg-white shadow-md p-5 overflow-y-auto">
+      <main className="dashboard-app-container h-screen flex-1 min-w-0 g-clip-border rounded-xl bg-white shadow-md p-5 overflow-y-auto">
         <h1 className="text-md md:text-3xl font-bold mt-10 ml-8">Coupon</h1>
         <section className="flex flex-col justify-center items-center gap-2 py-8">
           <form className="coupon-form" onSubmit={submitHandler}>

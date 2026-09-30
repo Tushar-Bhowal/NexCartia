@@ -23,7 +23,7 @@ const AdminSidebar = () => {
   const location = useLocation();
   const [showModal, setShowModal] = useState<boolean>(false);
   const [phoneActive, setPhoneActive] = useState<boolean>(
-    window.innerWidth < 1100
+    window.innerWidth < 1024
   );
 
   const resizeHandler = () => {
