@@ -17,7 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import { User } from "@/types/types";
 import { useLogoutMutation } from "@/redux/api/userApi";
 import toast from "react-hot-toast";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 import { userNotExist } from "@/redux/reducer/userReducer";
 
 interface PropsType {
@@ -32,6 +33,9 @@ const Header = ({ user }: PropsType) => {
   const isAdminRoute = location.pathname.startsWith("/admin");
 
   const [logout] = useLogoutMutation();
+  const cartCount = useSelector((state: RootState) =>
+    state.cartReducer.cartItems.reduce((sum, item) => sum + item.quantity, 0)
+  );
 
   const openSidebar = () => setIsOpen(true);
   const closeSidebar = () => setIsOpen(false);
@@ -71,8 +75,21 @@ const Header = ({ user }: PropsType) => {
               <Link to={"/search"}>
                 <IoSearchOutline className="w-5 h-5" />
               </Link>
-              <Link to={"/cart"}>
+              <Link
+                to={"/cart"}
+                className="relative"
+                aria-label={`Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
+              >
                 <BsCart3 className="w-5 h-5" />
+                {cartCount > 0 && (
+                  <span
+                    key={cartCount}
+                    aria-hidden="true"
+                    className="absolute -right-2.5 -top-2 flex h-4.5 min-w-4.5 animate-in zoom-in-50 items-center justify-center rounded-full bg-green-150 px-1 text-[10px] font-bold leading-none text-white duration-300"
+                  >
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
               </Link>
               {user?._id ? (
                 <DropdownMenu>
