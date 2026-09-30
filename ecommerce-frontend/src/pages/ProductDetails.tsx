@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import {
@@ -167,8 +167,11 @@ const ProductDetailsView = ({ id }: { id: string }) => {
   const [quantity, setQuantity] = useState(1);
   const sizeRef = useRef<HTMLDivElement>(null);
 
+  // A #reviews link scrolls to the review form itself (ProductReviews), so don't undo it
+  const { hash } = useLocation();
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (hash !== "#reviews") window.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { data: related, isLoading: relatedLoading } = useSearchProductsQuery(

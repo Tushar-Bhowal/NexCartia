@@ -11,6 +11,7 @@ import { TryCatch } from "../middlewares/error.js";
 import { Request } from "express";
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
+import { Review } from "../models/review.model.js";
 import { User } from "../models/user.model.js";
 import { myCache, stripe } from "../app.js";
 
@@ -69,9 +70,24 @@ export const getSingleOrder = TryCatch(async (req, res, next) => {
       return next(new ErrorHandler("Order Not Found", 404));
   }
 
+  // Kept out of the order cache: it changes every time the owner reviews an item
+  let myRatings: Record<string, number> | undefined;
+  if (order.user?._id === req.userId && order.status === "Delivered") {
+    const reviews = await Review.find({
+      user: req.userId,
+      product: {
+        $in: order.orderItems.map((i: { productId: string }) => i.productId),
+      },
+    }).select("product rating");
+    myRatings = Object.fromEntries(
+      reviews.map((r) => [String(r.product), r.rating])
+    );
+  }
+
   return res.status(200).json({
     success: true,
     order,
+    myRatings,
   });
 });
 

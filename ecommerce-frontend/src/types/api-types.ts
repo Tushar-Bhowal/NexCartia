@@ -61,6 +61,7 @@ export type ReviewsResponse = {
   distribution: Record<string, number>;
   myReview: Review | null;
   canReview: boolean;
+  awaitingDelivery: boolean;
 };
 
 export type ReviewRequest = {
@@ -80,6 +81,8 @@ export type AllOrdersResponse = {
 export type OrderDetailsResponse = {
   success: boolean;
   order: Order;
+  // Only for the order's owner once it's delivered: productId -> their star rating
+  myRatings?: Record<string, number>;
 };
 
 export type StatsResponse = {

@@ -1,5 +1,6 @@
 import Breadcrumb from "@/components/Shared/Breadcrumb";
 import { LineSkeleton } from "@/components/Shared/Loader";
+import { StarRating } from "@/components/Shared/StarRating";
 import { useOrderDetailsQuery } from "@/redux/api/orderApi";
 import { Link, useParams } from "react-router-dom";
 
@@ -11,7 +12,10 @@ const statusColor: Record<string, string> = {
 
 const OrderDetails = () => {
   const { id } = useParams();
-  const { data, isLoading, isError } = useOrderDetailsQuery(id!);
+  // Refetch on every visit so a review left on the product page shows up here
+  const { data, isLoading, isError } = useOrderDetailsQuery(id!, {
+    refetchOnMountOrArgChange: true,
+  });
 
   if (isLoading)
     return (
@@ -30,7 +34,8 @@ const OrderDetails = () => {
       </div>
     );
 
-  const { order } = data;
+  const { order, myRatings } = data;
+  const delivered = order.status === "Delivered";
   const { address, city, state, country, pinCode } = order.shippingInfo;
 
   return (
@@ -40,7 +45,7 @@ const OrderDetails = () => {
       </div>
 
       <div className="mt-6 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">Order #{order._id}</h1>
+        <h1 className="break-all text-2xl font-bold text-gray-900">Order #{order._id}</h1>
         <p className="text-sm text-gray-500">
           Placed on {new Date(order.createdAt).toLocaleString()}
         </p>
@@ -58,17 +63,41 @@ const OrderDetails = () => {
                 alt={item.name}
                 className="h-16 w-16 rounded-md object-cover"
               />
-              <Link
-                to={`/product/${item.productId}`}
-                className="flex-1 font-medium text-gray-900 hover:underline"
-              >
-                {item.name}
-                {item.size && (
-                  <span className="block text-sm font-normal text-gray-500">
-                    Size: {item.size}
-                  </span>
+              <div className="flex-1">
+                <Link
+                  to={`/product/${item.productId}`}
+                  className="block font-medium text-gray-900 hover:underline"
+                >
+                  {item.name}
+                  {item.size && (
+                    <span className="block text-sm font-normal text-gray-500">
+                      Size: {item.size}
+                    </span>
+                  )}
+                </Link>
+                {!delivered ? (
+                  <p className="mt-1 text-xs text-gray-500">
+                    You can rate this item once it's delivered.
+                  </p>
+                ) : myRatings?.[item.productId] ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                    <StarRating value={myRatings[item.productId]} />
+                    <Link
+                      to={`/product/${item.productId}#reviews`}
+                      className="text-gray-600 underline underline-offset-2 hover:text-gray-900"
+                    >
+                      Edit your review
+                    </Link>
+                  </div>
+                ) : (
+                  <Link
+                    to={`/product/${item.productId}#reviews`}
+                    className="mt-2 inline-block rounded-full bg-stone-900 px-3 py-1 text-xs font-semibold text-white hover:bg-stone-800"
+                  >
+                    Rate this item
+                  </Link>
                 )}
-              </Link>
+              </div>
               <span className="text-sm text-gray-700">
                 ₹{item.price} × {item.quantity} = ₹{item.price * item.quantity}
               </span>

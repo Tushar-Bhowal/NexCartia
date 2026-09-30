@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { Trash2 } from "lucide-react";
@@ -30,6 +30,14 @@ const ProductReviews = ({ productId, average }: { productId: string; average: nu
     setRating(myReview?.rating ?? 0);
     setComment(myReview?.comment ?? "");
   }, [myReview]);
+
+  // "Rate this item" on an order links here with #reviews; jump to the form once it exists
+  const { hash } = useLocation();
+  const formBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (hash === "#reviews" && !isLoading)
+      formBox.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [hash, isLoading]);
 
   const total = data ? Object.values(data.distribution).reduce((a, b) => a + b, 0) : 0;
 
@@ -92,7 +100,7 @@ const ProductReviews = ({ productId, average }: { productId: string; average: nu
             })}
           </ul>
 
-          <div className="mt-8 rounded-2xl bg-stone-50 p-5">
+          <div ref={formBox} className="mt-8 rounded-2xl bg-stone-50 p-5">
             {!user ? (
               <p className="text-sm text-stone-600">
                 <Link to="/login" className="font-semibold text-stone-900 underline underline-offset-4">
@@ -125,9 +133,13 @@ const ProductReviews = ({ productId, average }: { productId: string; average: nu
                   {saving ? "Saving…" : myReview ? "Update review" : "Submit review"}
                 </button>
               </form>
+            ) : data?.awaitingDelivery ? (
+              <p className="text-sm text-stone-600">
+                You can review this once your order is delivered.
+              </p>
             ) : (
               <p className="text-sm text-stone-600">
-                Only customers who have bought this item can review it.
+                Only customers who have received this item can review it.
               </p>
             )}
           </div>

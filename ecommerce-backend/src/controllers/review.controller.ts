@@ -8,8 +8,13 @@ import { User } from "../models/user.model.js";
 import { invalidateCache, updateProductRating } from "../utils/features.js";
 import ErrorHandler from "../utils/utility-class.js";
 
-const hasPurchased = (userId: string, productId: string) =>
-  Order.exists({ user: userId, "orderItems.productId": productId });
+// Reviews open only once an order containing the product has been delivered
+const hasReceived = (userId: string, productId: string) =>
+  Order.exists({
+    user: userId,
+    status: "Delivered",
+    "orderItems.productId": productId,
+  });
 
 export const getProductReviews = TryCatch(async (req, res, next) => {
   const productId = req.params.id as string;
@@ -32,7 +37,13 @@ export const getProductReviews = TryCatch(async (req, res, next) => {
   const myReview = userId
     ? await Review.findOne({ product: productId, user: userId })
     : null;
-  const canReview = userId ? !!(await hasPurchased(userId, productId)) : false;
+  const statuses: string[] = userId
+    ? await Order.distinct("status", {
+        user: userId,
+        "orderItems.productId": productId,
+      })
+    : [];
+  const canReview = statuses.includes("Delivered");
 
   return res.status(200).json({
     success: true,
@@ -45,6 +56,7 @@ export const getProductReviews = TryCatch(async (req, res, next) => {
     ),
     myReview,
     canReview,
+    awaitingDelivery: !canReview && statuses.length > 0,
   });
 });
 
@@ -61,9 +73,12 @@ export const upsertReview = TryCatch(async (req, res, next) => {
   if (!(await Product.exists({ _id: productId })))
     return next(new ErrorHandler("Product Not Found", 404));
 
-  if (!(await hasPurchased(req.userId!, productId)))
+  if (!(await hasReceived(req.userId!, productId)))
     return next(
-      new ErrorHandler("Only customers who bought this product can review it", 403)
+      new ErrorHandler(
+        "You can review this product once your order has been delivered",
+        403
+      )
     );
 
   const existing = await Review.findOneAndUpdate(

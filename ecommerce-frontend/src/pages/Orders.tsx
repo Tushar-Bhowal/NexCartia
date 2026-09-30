@@ -75,7 +75,16 @@ const Orders = () => {
               {i.status}
             </span>
           ),
-          action: <Link to={`/order/${i._id}`}>View</Link>,
+          action: (
+            <span className="flex gap-3">
+              <Link to={`/order/${i._id}`}>View</Link>
+              {i.status === "Delivered" && (
+                <Link to={`/order/${i._id}`} className="font-semibold text-amber-600">
+                  Rate items
+                </Link>
+              )}
+            </span>
+          ),
         }))
       );
   }, [data]);
