@@ -1,6 +1,6 @@
 import Breadcrumb from "@/components/Shared/Breadcrumb";
 import { motion } from "framer-motion";
-import { CreditCard, Check } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import {
   Elements,
   PaymentElement,
@@ -11,14 +11,16 @@ import { loadStripe } from "@stripe/stripe-js";
 import { FormEvent, useState } from "react";
 import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { resetCart } from "../redux/reducer/cartReducer";
 import { CustomError } from "../types/api-types";
 import { useNewOrderMutation } from "@/redux/api/orderApi";
 import { productAPI } from "@/redux/api/productApi";
 import { RootState } from "@/redux/store";
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY);
+const stripeKey: string | undefined = import.meta.env.VITE_STRIPE_KEY;
+// Without a publishable key Stripe.js can't load, so the page says so instead of a dead Pay button
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 const CheckOutForm = () => {
   const stripe = useStripe();
@@ -31,6 +33,8 @@ const CheckOutForm = () => {
   );
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [formReady, setFormReady] = useState(false);
+  const [loadError, setLoadError] = useState<string>();
   // Set once Stripe confirms the charge, so a failed order save can be retried without paying again
   const [paidIntentId, setPaidIntentId] = useState<string>();
 
@@ -39,7 +43,10 @@ const CheckOutForm = () => {
   const submitHandler = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !formReady) {
+      toast.error("The payment form is still loading, please wait a moment");
+      return;
+    }
     setIsProcessing(true);
 
     try {
@@ -95,15 +102,28 @@ const CheckOutForm = () => {
       <form onSubmit={submitHandler}>
         <div className="space-y-4">
           <div className="text-xl font-semibold text-gray-900">Card Detail</div>
-          <PaymentElement />
+          <PaymentElement
+            onReady={() => setFormReady(true)}
+            onLoadError={(e) => setLoadError(e.error.message)}
+          />
+          {!formReady && !loadError && (
+            <p className="text-sm text-gray-500" aria-live="polite">
+              Loading secure card form…
+            </p>
+          )}
+          {loadError && (
+            <p role="alert" className="text-sm text-red-600">
+              The card form couldn't load: {loadError}
+            </p>
+          )}
         </div>
         <motion.button
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="w-full p-4 mt-4 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-500/90 transition-colors"
+          className="w-full p-4 mt-4 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-500/90 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           type="submit"
-          disabled={isProcessing}
+          disabled={isProcessing || !stripe || !formReady}
         >
           {isProcessing
             ? "Processing..."
@@ -117,7 +137,6 @@ const CheckOutForm = () => {
 };
 
 const Payment = () => {
-  const [cardType, setCardType] = useState("credit");
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.userReducer);
 
@@ -154,6 +173,19 @@ const Payment = () => {
   };
 
   if (!clientSecret) return <Navigate to={"/shipping"} />;
+
+  if (!stripePromise)
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 pt-16 text-center">
+        <p className="text-xl font-semibold text-gray-900">Card payments aren't available right now</p>
+        <p className="max-w-md text-sm text-gray-500">
+          The store's payment setup is incomplete. Your bag is saved, so please try again later.
+        </p>
+        <Link to="/cart" className="mt-2 rounded-full bg-gray-900 px-6 py-2.5 text-sm font-semibold text-white">
+          Back to bag
+        </Link>
+      </div>
+    );
   return (
     <Elements
       options={{
@@ -175,52 +207,9 @@ const Payment = () => {
           className="p-6 space-y-6 md:border-r-2 sm:w-2/3"
           variants={itemVariants}
         >
-          <div className="text-xl font-semibold text-gray-900">Card Type</div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              className={`p-4 border rounded-lg flex items-center gap-2 ${
-                cardType === "credit"
-                  ? "border-emerald-500 bg-emerald-50"
-                  : "border-gray-200"
-              }`}
-              onClick={() => setCardType("credit")}
-            >
-              <CreditCard className="w-5 h-5" />
-              <span>Credit Card</span>
-              {cardType === "credit" && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="ml-auto text-emerald-500"
-                >
-                  <Check className="w-5 h-5" />
-                </motion.div>
-              )}
-            </motion.button>
-
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              className={`p-4 border rounded-lg flex items-center gap-2 ${
-                cardType === "debit"
-                  ? "border-emerald-500 bg-emerald-50"
-                  : "border-gray-200"
-              }`}
-              onClick={() => setCardType("debit")}
-            >
-              <CreditCard className="w-5 h-5" />
-              <span>Debit Card</span>
-              {cardType === "debit" && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="ml-auto text-emerald-500"
-                >
-                  <Check className="w-5 h-5" />
-                </motion.div>
-              )}
-            </motion.button>
+          <div className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 text-sm text-gray-700">
+            <CreditCard className="h-5 w-5 text-emerald-600" />
+            Pay securely with any credit or debit card
           </div>
           <CheckOutForm />
         </motion.div>
