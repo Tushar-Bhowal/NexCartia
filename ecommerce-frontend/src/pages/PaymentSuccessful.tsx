@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { PlacedOrder } from "@/types/api-types";
+import { formatPrice } from "@/lib/catalog";
 
 const PaymentSuccessful = () => {
   const order = useLocation().state as PlacedOrder | null;
@@ -31,7 +32,7 @@ const PaymentSuccessful = () => {
               Amount Paid:
             </span>
             <span className="font-medium text-gray-900 dark:text-gray-50">
-              ₹{order.total}
+              {formatPrice(order.total)}
             </span>
           </div>
           <div className="flex justify-between">
